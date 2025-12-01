@@ -125,38 +125,38 @@ const apiService = {
 // ============================================
 
 const HARDCODED_WEEK_TRENDS = [
-  { day: 'Mon', date: '2025-01-20', studyHours: 4.5, focusScore: 78, breaks: 3, sessions: 4 },
-  { day: 'Tue', date: '2025-01-21', studyHours: 5.2, focusScore: 82, breaks: 4, sessions: 5 },
-  { day: 'Wed', date: '2025-01-22', studyHours: 3.8, focusScore: 75, breaks: 3, sessions: 3 },
-  { day: 'Thu', date: '2025-01-23', studyHours: 6.1, focusScore: 88, breaks: 5, sessions: 6 },
-  { day: 'Fri', date: '2025-01-24', studyHours: 4.2, focusScore: 76, breaks: 3, sessions: 4 },
-  { day: 'Sat', date: '2025-01-25', studyHours: 5.8, focusScore: 85, breaks: 4, sessions: 5 },
-  { day: 'Sun', date: '2025-01-26', studyHours: 3.5, focusScore: 72, breaks: 2, sessions: 3 },
+  { day: 'Fri', date: '2025-11-28', studyHours: 4.5, focusScore: 78, breaks: 3, sessions: 4 },
+  { day: 'Sat', date: '2025-11-29', studyHours: 5.2, focusScore: 82, breaks: 4, sessions: 5 },
+  { day: 'Sun', date: '2025-11-30', studyHours: 3.8, focusScore: 75, breaks: 3, sessions: 3 },
+  { day: 'Mon', date: '2025-12-01', studyHours: 6.1, focusScore: 88, breaks: 5, sessions: 6 },
+  { day: 'Tue', date: '2025-12-02', studyHours: 4.2, focusScore: 76, breaks: 3, sessions: 4 },
+  { day: 'Wed', date: '2025-12-03', studyHours: 5.8, focusScore: 85, breaks: 4, sessions: 5 },
+  { day: 'Thu', date: '2025-12-04', studyHours: 1.5, focusScore: 72, breaks: 2, sessions: 3 },
 ];
 
 const HARDCODED_WEEK_SUMMARY = {
-  averageHoursPerDay: 4.7,
-  totalHours: 33.1,
-  bestDay: 'Thu',
+  averageHoursPerDay: 4.4,
+  totalHours: 31.1,
+  bestDay: 'Mon',
   bestDayHours: 6.1,
   bestDayFocus: 88,
   focusTrend: 5,
 };
 
 const HARDCODED_MONTH_TRENDS = [
-  { day: 'Week 1', date: '2025-01-01', studyHours: 28.5, focusScore: 74, breaks: 18, sessions: 22 },
-  { day: 'Week 2', date: '2025-01-08', studyHours: 32.1, focusScore: 79, breaks: 21, sessions: 26 },
-  { day: 'Week 3', date: '2025-01-15', studyHours: 35.8, focusScore: 82, breaks: 24, sessions: 29 },
-  { day: 'Week 4', date: '2025-01-22', studyHours: 33.1, focusScore: 80, breaks: 22, sessions: 27 },
+  { day: 'Week 1', date: '2025-12-01', studyHours: 21.1, focusScore: 79, breaks: 21, sessions: 22 },
+  { day: 'Week 2', date: '2025-12-08', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
+  { day: 'Week 3', date: '2025-12-15', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
+  { day: 'Week 4', date: '2025-12-22', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
 ];
 
 const HARDCODED_MONTH_SUMMARY = {
-  averageHoursPerDay: 4.3,
-  totalHours: 129.5,
-  bestDay: 'Week 3',
-  bestDayHours: 35.8,
-  bestDayFocus: 82,
-  focusTrend: 8,
+  averageHoursPerDay: 5.3,
+  totalHours: 21.1,
+  bestDay: 'Week 1',
+  bestDayHours: 21.1,
+  bestDayFocus: 79,
+  focusTrend: 0,
 };
 
 const HARDCODED_WEEK_PRODUCTIVITY = [
@@ -219,38 +219,36 @@ const HARDCODED_MONTH_STRESS_SUMMARY = {
 };
 
 const HARDCODED_WEEK_SESSIONS = [
-  { start: 1737352800, end: 1737360000, duration_minutes: 120 },
-  { start: 1737363600, end: 1737369000, duration_minutes: 90 },
-  { start: 1737439200, end: 1737450000, duration_minutes: 180 },
-  { start: 1737525600, end: 1737532800, duration_minutes: 120 },
-  { start: 1737536400, end: 1737543600, duration_minutes: 120 },
-  { start: 1737612000, end: 1737622800, duration_minutes: 180 },
-  { start: 1737698400, end: 1737705600, duration_minutes: 120 },
-  { start: 1737784800, end: 1737795600, duration_minutes: 180 },
-  { start: 1737871200, end: 1737878400, duration_minutes: 120 },
+  // Nov 28, 2025 (Fri)
+  { start: 1732780800, end: 1732788000, duration_minutes: 120 },
+  { start: 1732791600, end: 1732797000, duration_minutes: 90 },
+  // Nov 29, 2025 (Sat)
+  { start: 1732867200, end: 1732878000, duration_minutes: 180 },
+  // Nov 30, 2025 (Sun)
+  { start: 1732953600, end: 1732960800, duration_minutes: 120 },
+  // Dec 1, 2025 (Mon)
+  { start: 1733040000, end: 1733050800, duration_minutes: 180 },
+  { start: 1733054400, end: 1733061600, duration_minutes: 120 },
+  // Dec 2, 2025 (Tue)
+  { start: 1733126400, end: 1733133600, duration_minutes: 120 },
+  // Dec 3, 2025 (Wed)
+  { start: 1733212800, end: 1733223600, duration_minutes: 180 },
+  // Dec 4, 2025 (Thu - Demo Day)
+  { start: 1733299200, end: 1733304600, duration_minutes: 90 },
 ];
 
 const HARDCODED_MONTH_SESSIONS = [
-  { start: 1735689600, end: 1735700400, duration_minutes: 180 },
-  { start: 1735776000, end: 1735783200, duration_minutes: 120 },
-  { start: 1735862400, end: 1735873200, duration_minutes: 180 },
-  { start: 1735948800, end: 1735956000, duration_minutes: 120 },
-  { start: 1736035200, end: 1736046000, duration_minutes: 180 },
-  { start: 1736121600, end: 1736128800, duration_minutes: 120 },
-  { start: 1736208000, end: 1736218800, duration_minutes: 180 },
-  { start: 1736294400, end: 1736305200, duration_minutes: 180 },
-  { start: 1736380800, end: 1736388000, duration_minutes: 120 },
-  { start: 1736467200, end: 1736478000, duration_minutes: 180 },
-  { start: 1736553600, end: 1736564400, duration_minutes: 180 },
-  { start: 1736640000, end: 1736647200, duration_minutes: 120 },
-  { start: 1736726400, end: 1736737200, duration_minutes: 180 },
-  { start: 1736812800, end: 1736820000, duration_minutes: 120 },
-  { start: 1736899200, end: 1736910000, duration_minutes: 180 },
-  { start: 1736985600, end: 1736996400, duration_minutes: 180 },
-  { start: 1737072000, end: 1737079200, duration_minutes: 120 },
-  { start: 1737158400, end: 1737169200, duration_minutes: 180 },
-  { start: 1737244800, end: 1737252000, duration_minutes: 120 },
-  { start: 1737331200, end: 1737342000, duration_minutes: 180 },
+  // Dec 1, 2025 (Mon)
+  { start: 1733040000, end: 1733050800, duration_minutes: 180 },
+  { start: 1733054400, end: 1733061600, duration_minutes: 120 },
+  // Dec 2, 2025 (Tue)
+  { start: 1733126400, end: 1733133600, duration_minutes: 120 },
+  { start: 1733140800, end: 1733148000, duration_minutes: 120 },
+  // Dec 3, 2025 (Wed)
+  { start: 1733212800, end: 1733223600, duration_minutes: 180 },
+  { start: 1733227200, end: 1733234400, duration_minutes: 120 },
+  // Dec 4, 2025 (Thu - Demo Day)
+  { start: 1733299200, end: 1733304600, duration_minutes: 90 },
 ];
 
 // ============================================
@@ -546,7 +544,7 @@ const StudyDashboard = () => {
           stressSummary: HARDCODED_WEEK_STRESS_SUMMARY,
           sessions: HARDCODED_WEEK_SESSIONS,
           label: 'This Week',
-          dateRange: 'Jan 20 - Jan 26, 2025',
+          dateRange: 'Nov 28 - Dec 4, 2025',
         };
       case 'month':
         return {
@@ -557,7 +555,7 @@ const StudyDashboard = () => {
           stressSummary: HARDCODED_MONTH_STRESS_SUMMARY,
           sessions: HARDCODED_MONTH_SESSIONS,
           label: 'This Month',
-          dateRange: 'January 2025',
+          dateRange: 'December 2025',
         };
       case 'day':
       default:
