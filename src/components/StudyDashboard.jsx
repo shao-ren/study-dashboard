@@ -849,7 +849,7 @@ const StudyDashboard = () => {
                   <div className="reading-unit">{sensorData.presenceDetected ? 'Present' : 'Absent'}</div>
                 </div>
                 <div className="sensor-details">
-                  <p><strong>Distance:</strong> {sensorData.distanceCm.toFixed(1)} cm</p>
+                  <p><strong>Distance:</strong> {Number(sensorData.distanceCm || 0).toFixed(1)} cm</p>
                   <p><strong>Detection Range:</strong> 0-50 cm (present)</p>
                   <p><strong>Status:</strong> <span style={{ color: sensorData.presenceDetected ? '#4ade80' : '#ef4444' }}>
                     {sensorData.presenceDetected ? 'Active & Tracking' : 'Not Detected'}
@@ -1096,7 +1096,7 @@ const StudyDashboard = () => {
                         <tr key={index}>
                           <td>{new Date(session.start * 1000).toLocaleString()}</td>
                           <td>{new Date(session.end * 1000).toLocaleString()}</td>
-                          <td>{session.duration_minutes.toFixed(1)} mins</td>
+                          <td>{Number(session.duration_minutes || 0).toFixed(1)} mins</td>
                         </tr>
                       ))}
                     </tbody>
