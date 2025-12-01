@@ -669,7 +669,7 @@ const StudyDashboard = () => {
             Sessions
           </button>
         </div>
-        {activeTab !== 'sensors' && <TimeRangeSelector />}
+        {(activeTab === 'trends' || activeTab === 'stress' || activeTab === 'sessions') && <TimeRangeSelector />}
       </nav>
 
       {/* Time Range Info Banner */}
