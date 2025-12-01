@@ -10,8 +10,8 @@ CORS(app)
 dynamodb = boto3.resource(
     'dynamodb',
     region_name='ap-southeast-1',
-    aws_access_key_id='AKIAYIIXBU65ZGLW4BGD',
-    aws_secret_access_key='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') 
+    aws_access_key_id='access-key-here',
+    aws_secret_access_key='secret-access-key-here') 
     # change to env variables or smething
 table = dynamodb.Table('ProximitySensorData')
 
