@@ -7,6 +7,7 @@ import {
   Area,
   BarChart,
   Bar,
+  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -944,23 +945,52 @@ const StudyDashboard = () => {
               <h2 className="chart-title">{timeRange === 'month' ? 'Monthly' : timeRange === 'week' ? 'Weekly' : 'Daily'} Study Patterns {timeRange !== 'day' && `(${currentData.dateRange})`}</h2>
               {(currentData.trends && currentData.trends.length > 0) ? (
                 <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={currentData.trends} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="day" stroke="#6b7280" />
-                    <YAxis stroke="#6b7280" />
+                  <ComposedChart data={currentData.trends} margin={{ top: 20, right: 60, left: 20, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="day" stroke="#9ca3af" />
+                    <YAxis 
+                      yAxisId="left" 
+                      stroke="#10b981" 
+                      domain={[0, 100]} 
+                      tickFormatter={(v) => `${v}%`}
+                      label={{ value: 'Focus Score (%)', angle: -90, position: 'insideLeft', fill: '#10b981', fontSize: 12 }}
+                    />
+                    <YAxis 
+                      yAxisId="right" 
+                      orientation="right" 
+                      stroke="#3b82f6" 
+                      domain={[0, 'auto']}
+                      tickFormatter={(v) => `${v}h`}
+                      label={{ value: 'Hours / Breaks', angle: 90, position: 'insideRight', fill: '#3b82f6', fontSize: 12 }}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: '#1f2937',
-                        border: 'none',
+                        border: '1px solid #374151',
                         borderRadius: '8px',
                         color: '#fff',
                       }}
+                      formatter={(value, name) => {
+                        if (name === 'Focus Score') return [`${value}%`, name];
+                        if (name === 'Study Hours') return [`${value}h`, name];
+                        return [value, name];
+                      }}
                     />
                     <Legend />
-                    <Bar dataKey="studyHours" fill="#3b82f6" name="Study Hours" />
-                    <Bar dataKey="focusScore" fill="#10b981" name="Focus Score" />
-                    <Bar dataKey="breaks" fill="#f59e0b" name="Breaks Taken" />
-                  </BarChart>
+                    <Bar yAxisId="right" dataKey="studyHours" fill="#3b82f6" name="Study Hours" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    <Bar yAxisId="right" dataKey="breaks" fill="#f59e0b" name="Breaks Taken" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    <Line 
+                      yAxisId="left" 
+                      type="monotone" 
+                      dataKey="focusScore" 
+                      stroke="#10b981" 
+                      strokeWidth={3} 
+                      dot={{ fill: '#10b981', r: 6, strokeWidth: 2, stroke: '#1f2937' }} 
+                      activeDot={{ r: 8, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }}
+                      name="Focus Score"
+                      isAnimationActive={false}
+                    />
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="no-data">No data available yet. Study trends will appear after you start using the system.</div>
