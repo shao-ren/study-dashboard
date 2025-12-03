@@ -183,27 +183,6 @@ def generate_insights(sensor_data, sessions, study_trends):
                 'icon': 'alert'
             })
         insight_id += 1
-        
-    # Light level insight
-    if sensor_data.get('lightLevel'):
-        light_quality = get_light_quality(sensor_data['lightLevel'])
-        if light_quality['optimal']:
-            insights.append({
-                'id': insight_id,
-                'type': 'success',
-                'title': 'Lighting Conditions Optimal',
-                'description': f"Current light level ({sensor_data['lightLevel']} lux) is perfect for focus. Maintain this environment.",
-                'icon': 'check'
-            })
-        else:
-            insights.append({
-                'id': insight_id,
-                'type': 'warning',
-                'title': 'Lighting Adjustment Recommended',
-                'description': f"Light level is {light_quality['status'].lower()}. Adjust for better focus.",
-                'icon': 'alert'
-            })
-        insight_id += 1
     
     # Presence/session insight
     if sessions:
