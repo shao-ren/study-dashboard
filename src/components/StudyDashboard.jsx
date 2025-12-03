@@ -204,6 +204,11 @@ const StudyDashboard = () => {
         apiService.fetchPresenceHistory(),
       ]);
 
+      // In fetchAllData function
+      console.log('Dashboard Stats Data:', dashboardStatsData);
+      console.log('Light Level:', dashboardStatsData?.lightLevel);
+      console.log('Type of lightLevel:', typeof dashboardStatsData?.lightLevel);
+
       // setConnectionStatus((prev) => ({ ...prev, api: true }));
 
       // Update dashboard stats
@@ -442,10 +447,10 @@ const StudyDashboard = () => {
     if (level === null || level === undefined || level < 0) {
     return { status: 'Sensor Offline', color: '#6b7280', connected: false };
     }
-    if (level < 50) return { status: 'Too Dark', color: '#6b7280' };
-    if (level < 200) return { status: 'Low', color: '#fbbf24' };
-    if (level < 400) return { status: 'Optimal', color: '#4ade80' };
-    if (level < 500) return { status: 'Bright', color: '#fbbf24' };
+    if (level < 50) return { status: 'Too Dark', color: '#6b7280', connected: true };
+    if (level < 200) return { status: 'Low', color: '#fbbf24', connected: true };
+    if (level < 400) return { status: 'Optimal', color: '#4ade80', connected: true };
+    if (level < 500) return { status: 'Bright', color: '#fbbf24', connected: true };
     return { status: 'Too Bright', color: '#ef4444' };
   };
 
@@ -549,6 +554,10 @@ const StudyDashboard = () => {
     return entry ? entry.productivity : 0;
   };
 
+  console.log('=== RENDER DEBUG ===');
+  console.log('dashboardStats state:', dashboardStats);
+  console.log('dashboardStats.lightLevel:', dashboardStats.lightLevel);
+  console.log('lightQuality result:', lightQuality);
   // ============================================
   // RENDER
   // ============================================
