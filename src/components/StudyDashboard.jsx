@@ -387,22 +387,43 @@ const StudyDashboard = () => {
   };
 
   const HARDCODED_WEEK_SESSIONS = [
-    // Nov 28, 2025 (Fri)
-    { start: 1732780800, end: 1732788000, duration_minutes: 120 },
-    { start: 1732791600, end: 1732797000, duration_minutes: 90 },
-    // Nov 29, 2025 (Sat)
-    { start: 1732867200, end: 1732878000, duration_minutes: 180 },
-    // Nov 30, 2025 (Sun)
-    { start: 1732953600, end: 1732960800, duration_minutes: 120 },
-    // Dec 1, 2025 (Mon)
-    { start: 1733040000, end: 1733050800, duration_minutes: 180 },
-    { start: 1733054400, end: 1733061600, duration_minutes: 120 },
-    // Dec 2, 2025 (Tue)
-    { start: 1733126400, end: 1733133600, duration_minutes: 120 },
-    // Dec 3, 2025 (Wed)
-    { start: 1733212800, end: 1733223600, duration_minutes: 180 },
-    // Dec 4, 2025 (Thu - Demo Day)
-    { start: 1733299200, end: 1733304600, duration_minutes: 90 },
+    // Nov 28, 2025 (Fri) - 4.5 hrs total, 4 sessions
+    { start: 1732763400, end: 1732767600, duration_minutes: 70 },   // 09:30-10:40 SGT
+    { start: 1732769400, end: 1732773300, duration_minutes: 65 },   // 11:10-12:15 SGT
+    { start: 1732780800, end: 1732785000, duration_minutes: 70 },   // 14:20-15:30 SGT
+    { start: 1732786800, end: 1732790700, duration_minutes: 65 },   // 15:50-16:55 SGT
+    // Nov 29, 2025 (Sat) - 5.2 hrs total, 5 sessions
+    { start: 1732849800, end: 1732853700, duration_minutes: 65 },   // 09:30-10:35 SGT
+    { start: 1732855500, end: 1732859100, duration_minutes: 60 },   // 11:05-12:05 SGT
+    { start: 1732867200, end: 1732871100, duration_minutes: 65 },   // 14:20-15:25 SGT
+    { start: 1732872900, end: 1732876500, duration_minutes: 60 },   // 15:55-16:55 SGT
+    { start: 1732878300, end: 1732882020, duration_minutes: 62 },   // 17:25-18:27 SGT
+    // Nov 30, 2025 (Sun) - 3.8 hrs total, 3 sessions
+    { start: 1732936200, end: 1732941000, duration_minutes: 80 },   // 09:30-10:50 SGT
+    { start: 1732942800, end: 1732947300, duration_minutes: 75 },   // 11:20-12:35 SGT
+    { start: 1732953600, end: 1732957980, duration_minutes: 73 },   // 14:20-15:33 SGT
+    // Dec 1, 2025 (Mon) - 6.1 hrs total, 6 sessions
+    { start: 1733022600, end: 1733026500, duration_minutes: 65 },   // 09:30-10:35 SGT
+    { start: 1733028300, end: 1733031900, duration_minutes: 60 },   // 11:05-12:05 SGT
+    { start: 1733040000, end: 1733043600, duration_minutes: 60 },   // 14:20-15:20 SGT
+    { start: 1733045400, end: 1733049000, duration_minutes: 60 },   // 15:50-16:50 SGT
+    { start: 1733050800, end: 1733054460, duration_minutes: 61 },   // 17:20-18:21 SGT
+    { start: 1733056200, end: 1733059800, duration_minutes: 60 },   // 18:50-19:50 SGT
+    // Dec 2, 2025 (Tue) - 4.2 hrs total, 4 sessions
+    { start: 1733109000, end: 1733112900, duration_minutes: 65 },   // 09:30-10:35 SGT
+    { start: 1733114700, end: 1733118300, duration_minutes: 60 },   // 11:05-12:05 SGT
+    { start: 1733126400, end: 1733130300, duration_minutes: 65 },   // 14:20-15:25 SGT
+    { start: 1733132100, end: 1733135820, duration_minutes: 62 },   // 15:55-16:57 SGT
+    // Dec 3, 2025 (Wed) - 5.8 hrs total, 5 sessions
+    { start: 1733195400, end: 1733199600, duration_minutes: 70 },   // 09:30-10:40 SGT
+    { start: 1733201400, end: 1733205600, duration_minutes: 70 },   // 11:10-12:20 SGT
+    { start: 1733212800, end: 1733217000, duration_minutes: 70 },   // 14:20-15:30 SGT
+    { start: 1733218800, end: 1733223000, duration_minutes: 70 },   // 16:00-17:10 SGT
+    { start: 1733224800, end: 1733228880, duration_minutes: 68 },   // 17:40-18:48 SGT
+    // Dec 4, 2025 (Thu - Demo Day) - 1.5 hrs total, 3 sessions
+    { start: 1733281800, end: 1733283600, duration_minutes: 30 },   // 09:30-10:00 SGT
+    { start: 1733285400, end: 1733287200, duration_minutes: 30 },   // 10:30-11:00 SGT
+    { start: 1733289000, end: 1733290800, duration_minutes: 30 },   // 11:30-12:00 SGT
   ];
   
   const HARDCODED_MONTH_SESSIONS = [
@@ -1177,6 +1198,7 @@ const StudyDashboard = () => {
                   <table>
                     <thead>
                       <tr>
+                        {timeRange !== 'day' && <th>Date</th>}
                         <th>Start Time</th>
                         <th>End Time</th>
                         <th>Duration</th>
@@ -1185,6 +1207,13 @@ const StudyDashboard = () => {
                     <tbody>
                       {currentData.sessions.map((session, index) => (
                         <tr key={index}>
+                          {timeRange !== 'day' && (
+                            <td>{new Date(session.start * 1000).toLocaleDateString('en-GB', {
+                              weekday: 'short',
+                              day: '2-digit',
+                              month: 'short'
+                            })}</td>
+                          )}
                           <td>{new Date(session.start * 1000).toLocaleString('en-GB', {
                             hour12: false,
                             hour: '2-digit',
