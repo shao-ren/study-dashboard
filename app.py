@@ -54,8 +54,23 @@ def decimal_to_float(obj):
         return [decimal_to_float(i) for i in obj]
     return obj
 
+def sanitize_light_level(value):
+    """Ensure light level is valid (non-negative). Returns None if invalid."""
+    if value is None:
+        return None
+    try:
+        float_val = float(value)
+        if float_val < 0:
+            return None
+        return float_val
+    except (TypeError, ValueError):
+        return None
+
 def get_light_quality(lux_level):
     """Determine light quality based on lux level"""
+    # Handle invalid readings (negative or None)
+    if lux_level is None or lux_level < 0:
+        return {'status': 'Sensor Offline', 'color': '#6b7280', 'optimal': False, 'connected': False}
     if lux_level < 100:
         return {'status': 'Too Dark', 'color': '#6b7280', 'optimal': False}
     elif lux_level < 300:
@@ -137,6 +152,38 @@ def generate_insights(sensor_data, sessions, study_trends):
     insights = []
     insight_id = 1
     
+    light_level = sensor_data.get('lightLevel')
+    light_connected = sensor_data.get('lightSensorConnected', light_level is not None)
+    
+    if not light_connected or light_level is None:
+        insights.append({
+            'id': insight_id,
+            'type': 'warning',
+            'title': 'Light Sensor Offline',
+            'description': 'Unable to read light levels. Please check the sensor connection.',
+            'icon': 'alert'
+        })
+        insight_id += 1
+    elif light_level is not None:
+        light_quality = get_light_quality(light_level)
+        if light_quality['optimal']:
+            insights.append({
+                'id': insight_id,
+                'type': 'success',
+                'title': 'Lighting Conditions Optimal',
+                'description': f"Current light level ({int(light_level)} lux) is perfect for focus. Maintain this environment.",
+                'icon': 'check'
+            })
+        else:
+            insights.append({
+                'id': insight_id,
+                'type': 'warning',
+                'title': 'Lighting Adjustment Recommended',
+                'description': f"Light level is {light_quality['status'].lower()}. Adjust for better focus.",
+                'icon': 'alert'
+            })
+        insight_id += 1
+        
     # Light level insight
     if sensor_data.get('lightLevel'):
         light_quality = get_light_quality(sensor_data['lightLevel'])
@@ -297,17 +344,20 @@ def get_dashboard_stats():
             Limit=1
         )
 
-        light_level = latest_ambience['Items'][0].get('ambientLux', 0)
-        presence_detected = latest_presence['Items'][0].get('presence', False)
-        emotion_state = latest_camera['Items'][0].get('primaryEmotion', 'Calm')
-        stress_level = latest_camera['Items'][0].get('stressScore', 0.0)
+        raw_light = latest_ambience['Items'][0].get('ambientLux') if latest_ambience.get('Items') else None
+        light_level = sanitize_light_level(raw_light)
+        
+        presence_detected = latest_presence['Items'][0].get('presence', False) if latest_presence.get('Items') else False
+        emotion_state = latest_camera['Items'][0].get('primaryEmotion', 'Calm') if latest_camera.get('Items') else 'Calm'
+        stress_level = latest_camera['Items'][0].get('stressScore', 0.0) if latest_camera.get('Items') else 0.0
         
         return jsonify({
             'sessionTime': session_time,
             'focusScore': focus_score,
-            'lightLevel': decimal_to_float(light_level),
+            'lightLevel': light_level,  # Will be None if sensor offline
+            'lightSensorConnected': light_level is not None,
             'presenceDetected': presence_detected,
-            'emotionState': emotion_state.capitalize(),
+            'emotionState': emotion_state.capitalize() if emotion_state else 'Calm',
             'stressLevel': decimal_to_float(stress_level) * 100,
         })
         
@@ -417,12 +467,15 @@ def get_insights():
             Limit=1
         )
 
-        light_level = latest_ambience['Items'][0].get('ambientLux', 0)
-        presence_detected = latest_presence['Items'][0].get('presence', False)
-        stress_level = latest_camera['Items'][0].get('stressScore', 0.0)
+        raw_light = latest_ambience['Items'][0].get('ambientLux') if latest_ambience.get('Items') else None
+        light_level = sanitize_light_level(raw_light)
+        
+        presence_detected = latest_presence['Items'][0].get('presence', False) if latest_presence.get('Items') else False
+        stress_level = latest_camera['Items'][0].get('stressScore', 0.0) if latest_camera.get('Items') else 0.0
 
         sensor_data = {
-            'lightLevel': light_level,
+            'lightLevel': light_level,  # Can be None
+            'lightSensorConnected': light_level is not None,
             'presenceDetected': presence_detected,
             'stressLevel': stress_level
         }
@@ -503,17 +556,20 @@ def get_latest_sensor_data():
             Limit=1
         )
 
-        light_level = latest_ambience['Items'][0].get('ambientLux', 0)
-        presence_detected = latest_presence['Items'][0].get('presence', False)
-        distance_cm = latest_presence['Items'][0].get('distanceCm', 0.0)
-        emotion_state = latest_camera['Items'][0].get('primaryEmotion', 'Calm')
-        stress_level = latest_camera['Items'][0].get('stressScore', 0.0)
+        raw_light = latest_ambience['Items'][0].get('ambientLux') if latest_ambience.get('Items') else None
+        light_level = sanitize_light_level(raw_light)
+        
+        presence_detected = latest_presence['Items'][0].get('presence', False) if latest_presence.get('Items') else False
+        distance_cm = latest_presence['Items'][0].get('distanceCm', 0.0) if latest_presence.get('Items') else 0.0
+        emotion_state = latest_camera['Items'][0].get('primaryEmotion', 'Calm') if latest_camera.get('Items') else 'Calm'
+        stress_level = latest_camera['Items'][0].get('stressScore', 0.0) if latest_camera.get('Items') else 0.0
         
         return jsonify({
-            'lightLevel': decimal_to_float(light_level),
+            'lightLevel': light_level,  # Will be None if sensor offline
+            'lightSensorConnected': light_level is not None,
             'presenceDetected': presence_detected,
-            'distanceCm': distance_cm,
-            'emotionState': emotion_state.capitalize(),
+            'distanceCm': decimal_to_float(distance_cm),
+            'emotionState': emotion_state.capitalize() if emotion_state else 'Calm',
             'stressLevel': decimal_to_float(stress_level) * 100,
         })
         

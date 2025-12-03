@@ -141,7 +141,8 @@ const StudyDashboard = () => {
   const [dashboardStats, setDashboardStats] = useState({
     sessionTime: '0h 0m 0s',
     focusScore: 0,
-    lightLevel: 0,
+    lightLevel: null,  // null indicates unknown/offline
+    lightSensorConnected: false,
     presenceDetected: false,
     emotionState: 'Calm',
     stressLevel: 0,
@@ -152,7 +153,8 @@ const StudyDashboard = () => {
 
   // Real-time sensor data (from WebSocket)
   const [sensorData, setSensorData] = useState({
-    lightLevel: 0,
+    lightLevel: null,  // null indicates unknown/offline
+    lightSensorConnected: false,
     presenceDetected: false,
     distanceCm: 0,
     emotionState: 'Calm',
@@ -209,7 +211,8 @@ const StudyDashboard = () => {
         setDashboardStats({
           sessionTime: dashboardStatsData.sessionTime || '0h 0m 0s',
           focusScore: dashboardStatsData.focusScore || 0,
-          lightLevel: dashboardStatsData.lightLevel || 0,
+          lightLevel: dashboardStatsData.lightLevel,  // Don't default to 0, keep null
+          lightSensorConnected: dashboardStatsData.lightSensorConnected ?? (dashboardStatsData.lightLevel !== null && dashboardStatsData.lightLevel >= 0),
           presenceDetected: dashboardStatsData.presenceDetected || false,
           emotionState: dashboardStatsData.emotionState || 'Calm',
           stressLevel: dashboardStatsData.stressLevel || 0.0,
@@ -230,7 +233,8 @@ const StudyDashboard = () => {
       // Update sensor data from API
       if (latestSensorData) {
         setSensorData({
-          lightLevel: latestSensorData.lightLevel || 0,
+          lightLevel: latestSensorData.lightLevel,  // Don't default to 0, keep null
+          lightSensorConnected: latestSensorData.lightSensorConnected ?? (latestSensorData.lightLevel !== null && latestSensorData.lightLevel >= 0),
           presenceDetected: latestSensorData.presenceDetected || false,
           distanceCm: latestSensorData.distanceCm || 0.0,
           emotionState: latestSensorData.emotionState || 'Calm',
@@ -435,6 +439,9 @@ const StudyDashboard = () => {
   };
 
   const getLightQuality = (level) => {
+    if (level === null || level === undefined || level < 0) {
+    return { status: 'Sensor Offline', color: '#6b7280', connected: false };
+    }
     if (level < 50) return { status: 'Too Dark', color: '#6b7280' };
     if (level < 200) return { status: 'Low', color: '#fbbf24' };
     if (level < 400) return { status: 'Optimal', color: '#4ade80' };
@@ -443,6 +450,8 @@ const StudyDashboard = () => {
   };
 
   const lightQuality = getLightQuality(dashboardStats.lightLevel);
+
+  const sensorLightQuality = getLightQuality(sensorData.lightLevel);
 
   // Get data based on selected time range
   const getTimeRangeData = () => {
@@ -634,17 +643,23 @@ const StudyDashboard = () => {
           <div className="tab-content overview-tab">
             {/* KPI Cards */}
             <div className="kpi-grid">
+              {/* Light Level Card */}
               <div className="kpi-card">
                 <div className="kpi-header">
                   <Cloud size={24} className="kpi-icon" />
                   <span className="kpi-title">Light Level</span>
                 </div>
-                <div className="kpi-value">{Math.round(dashboardStats.lightLevel)} lux</div>
+                <div className="kpi-value">
+                  {lightQuality.connected 
+                    ? `${Math.round(dashboardStats.lightLevel)} lux`
+                    : '-- lux'}
+                </div>
                 <div className="kpi-status" style={{ color: lightQuality.color }}>
                   {lightQuality.status}
                 </div>
               </div>
 
+              {/* Presence Card */}
               <div className="kpi-card">
                 <div className="kpi-header">
                   <Zap size={24} className="kpi-icon" />
@@ -656,6 +671,7 @@ const StudyDashboard = () => {
                 </div>
               </div>
 
+              {/* Emotion Card */}
               <div className="kpi-card">
                 <div className="kpi-header">
                   <Eye size={24} className="kpi-icon" />
@@ -667,6 +683,7 @@ const StudyDashboard = () => {
                 </div>
               </div>
 
+              {/* Stress Level Card */}
               <div className="kpi-card">
                 <div className="kpi-header">
                   <Heart size={24} className="kpi-icon" />
@@ -771,24 +788,54 @@ const StudyDashboard = () => {
                 <div className="sensor-header">
                   <Cloud size={32} className="sensor-icon" />
                   <h3>Light Level Sensor</h3>
+                  {!sensorLightQuality.connected && (
+                    <span className="sensor-offline-badge">Offline</span>
+                  )}
                 </div>
                 <div className="sensor-reading">
-                  <div className="reading-value">{Math.round(sensorData.lightLevel)}</div>
+                  <div className="reading-value" style={{ color: sensorLightQuality.connected ? undefined : '#6b7280' }}>
+                    {sensorLightQuality.connected ? Math.round(sensorData.lightLevel) : '--'}
+                  </div>
                   <div className="reading-unit">lux</div>
                 </div>
                 <div className="sensor-details">
-                  <p><strong>Status:</strong> <span style={{ color: lightQuality.color }}>{lightQuality.status}, {sensorData.lightLevel < 200 ? 'Increase brightness' : sensorData.lightLevel > 500 ? 'Reduce brightness' : 'Perfect lighting'}</span></p>
-                  <p><strong>Optimal Range:</strong> 200-400 lux</p>
-                  <p></p>
+                  {sensorLightQuality.connected ? (
+                    <>
+                      <p>
+                        <strong>Status:</strong>{' '}
+                        <span style={{ color: sensorLightQuality.color }}>
+                          {sensorLightQuality.status},{' '}
+                          {sensorData.lightLevel < 200
+                            ? 'Increase brightness'
+                            : sensorData.lightLevel > 500
+                            ? 'Reduce brightness'
+                            : 'Perfect lighting'}
+                        </span>
+                      </p>
+                      <p><strong>Optimal Range:</strong> 200-400 lux</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        <strong>Status:</strong>{' '}
+                        <span style={{ color: '#ef4444' }}>
+                          Sensor not connected or returning invalid data
+                        </span>
+                      </p>
+                      <p><strong>Action:</strong> Check sensor wiring and connection</p>
+                    </>
+                  )}
                 </div>
                 <div className="sensor-chart">
                   <div className="progress-bar">
                     <div
                       className="progress-fill"
                       style={{
-                        width: `${Math.min(100, (sensorData.lightLevel / 600) * 100)}%`,
+                        width: sensorLightQuality.connected
+                          ? `${Math.min(100, Math.max(0, (sensorData.lightLevel / 600) * 100))}%`
+                          : '0%',
                         height: 10,
-                        backgroundColor: lightQuality.color,
+                        backgroundColor: sensorLightQuality.color,
                       }}
                     ></div>
                   </div>
