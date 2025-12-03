@@ -558,30 +558,31 @@ def get_latest_sensor_data():
 
 @app.route('/api/study_trends', methods=['GET'])
 def get_study_trends():
-    """Get weekly study patterns"""
+    """Get study patterns - hourly for day view, daily for week/month view"""
     device_id = request.args.get('deviceId', 'esp32-ultrasonic')
     days = int(request.args.get('days', 7))
     
+    sgt_offset = timedelta(hours=8)
+    
     try:
-        # Get data for the past week
+        # DAILY VIEW: Return hourly data for today
+        if days == 1:
+            return get_hourly_trends(device_id, sgt_offset)
+        
+        # WEEKLY/MONTHLY VIEW: Return daily data
         trends = []
         day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        
-        sgt_offset = timedelta(hours=8)
         
         for i in range(days):
             day_offset = days - 1 - i
             
-            # Calculate day boundaries in SGT, then convert to UTC for query
             now_utc = datetime.now(timezone.utc)
             now_sgt = now_utc + sgt_offset
             target_date_sgt = now_sgt - timedelta(days=day_offset)
             
-            # Start and end of day in SGT
             start_of_day_sgt = target_date_sgt.replace(hour=0, minute=0, second=0, microsecond=0)
             end_of_day_sgt = target_date_sgt.replace(hour=23, minute=59, second=59, microsecond=999999)
             
-            # Convert back to UTC for DynamoDB query
             start_of_day_utc = start_of_day_sgt - sgt_offset
             end_of_day_utc = end_of_day_sgt - sgt_offset
             
@@ -598,7 +599,7 @@ def get_study_trends():
             
             total_study_minutes = sum(s.get('duration_minutes', 0) for s in sessions)
             study_hours = round(total_study_minutes / 60, 1)
-            focus_score = calculate_focus_score(sessions, 8)  # Assume 8 hour study window
+            focus_score = calculate_focus_score(sessions, 8)
             breaks = len(sessions) - 1 if len(sessions) > 0 else 0
             
             day_name = day_names[target_date_sgt.weekday()]
@@ -612,12 +613,10 @@ def get_study_trends():
                 'sessions': len(sessions)
             })
         
-        # Calculate summary stats
         total_hours = sum(t['studyHours'] for t in trends)
         avg_hours = round(total_hours / len(trends), 1) if trends else 0
         best_day = max(trends, key=lambda x: x['focusScore']) if trends else None
         
-        # Calculate focus trend (compare first half vs second half of week)
         if len(trends) >= 4:
             first_half_avg = sum(t['focusScore'] for t in trends[:len(trends)//2]) / (len(trends)//2)
             second_half_avg = sum(t['focusScore'] for t in trends[len(trends)//2:]) / (len(trends) - len(trends)//2)
@@ -641,6 +640,130 @@ def get_study_trends():
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+def get_hourly_trends(device_id, sgt_offset):
+    """Get hourly study trends for today"""
+    try:
+        now_utc = datetime.now(timezone.utc)
+        now_sgt = now_utc + sgt_offset
+        start_of_day_sgt = now_sgt.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        start_of_day_utc = start_of_day_sgt - sgt_offset
+        start_iso = start_of_day_utc.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        
+        response = presence_table.query(
+            KeyConditionExpression=Key('deviceId').eq(device_id) & Key('timestamp').gte(start_iso)
+        )
+        
+        items = decimal_to_float(response.get('Items', []))
+        
+        hourly_data = {}
+        for hour in range(24):
+            hourly_data[hour] = {
+                'total_readings': 0,
+                'present_readings': 0,
+                'session_starts': 0,
+                'study_minutes': 0
+            }
+        
+        for item in items:
+            try:
+                timestamp = item.get('timestamp', '')
+                if timestamp:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    dt_sgt = dt + sgt_offset
+                    hour = dt_sgt.hour
+                    
+                    hourly_data[hour]['total_readings'] += 1
+                    if item.get('presence', False):
+                        hourly_data[hour]['present_readings'] += 1
+            except:
+                continue
+        
+        sessions = calculate_sessions(items)
+        
+        for session in sessions:
+            try:
+                session_start = datetime.fromtimestamp(session['start'], tz=timezone.utc)
+                session_start_sgt = session_start + sgt_offset
+                hour = session_start_sgt.hour
+                hourly_data[hour]['session_starts'] += 1
+            except:
+                continue
+        
+        for session in sessions:
+            try:
+                start_ts = session['start']
+                end_ts = session['end']
+                
+                start_dt = datetime.fromtimestamp(start_ts, tz=timezone.utc) + sgt_offset
+                end_dt = datetime.fromtimestamp(end_ts, tz=timezone.utc) + sgt_offset
+                
+                current = start_dt
+                while current < end_dt:
+                    hour = current.hour
+                    hour_end = current.replace(minute=59, second=59, microsecond=999999)
+                    segment_end = min(hour_end, end_dt)
+                    minutes_in_hour = (segment_end - current).total_seconds() / 60
+                    hourly_data[hour]['study_minutes'] += minutes_in_hour
+                    
+                    current = (current + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+            except:
+                continue
+        
+        trends = []
+        hour_labels = {
+            0: '12am', 1: '1am', 2: '2am', 3: '3am', 4: '4am', 5: '5am',
+            6: '6am', 7: '7am', 8: '8am', 9: '9am', 10: '10am', 11: '11am',
+            12: '12pm', 13: '1pm', 14: '2pm', 15: '3pm', 16: '4pm', 17: '5pm',
+            18: '6pm', 19: '7pm', 20: '8pm', 21: '9pm', 22: '10pm', 23: '11pm'
+        }
+        
+        # Only include hours that have data
+        for hour in range(0, 24):
+            data = hourly_data[hour]
+            total = data['total_readings']
+            present = data['present_readings']
+            
+            # Skip hours with no activity
+            if total == 0 and data['study_minutes'] == 0:
+                continue
+            
+            focus_score = round((present / total) * 100) if total > 0 else 0
+            study_minutes = min(round(data['study_minutes'], 1), 60)
+            breaks = max(0, data['session_starts'] - 1) if data['session_starts'] > 0 else 0
+            
+            trends.append({
+                'time': hour_labels[hour],
+                'hour': hour,
+                'studyMinutes': study_minutes,
+                'focusScore': focus_score,
+                'breaks': breaks,
+                'sessions': data['session_starts']
+            })
+        
+        total_minutes = sum(t['studyMinutes'] for t in trends)
+        total_hours = round(total_minutes / 60, 1)
+        avg_focus = round(sum(t['focusScore'] for t in trends if t['focusScore'] > 0) / max(1, len([t for t in trends if t['focusScore'] > 0]))) if trends else 0
+        
+        peak_hour = max(trends, key=lambda x: x['studyMinutes']) if trends else None
+        
+        return jsonify({
+            'trends': trends,
+            'viewType': 'hourly',
+            'summary': {
+                'totalStudyMinutes': round(total_minutes),
+                'totalHours': total_hours,
+                'averageFocusScore': avg_focus,
+                'peakHour': peak_hour['time'] if peak_hour and peak_hour['studyMinutes'] > 0 else None,
+                'peakMinutes': peak_hour['studyMinutes'] if peak_hour else 0,
+                'totalBreaks': sum(t['breaks'] for t in trends),
+                'focusTrend': 0
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in get_hourly_trends: {e}")
+        return jsonify({"error": str(e)}), 500
 # done
 @app.route('/api/stress_history', methods=['GET'])
 def get_stress_history():

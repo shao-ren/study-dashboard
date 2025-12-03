@@ -950,12 +950,19 @@ const StudyDashboard = () => {
         {activeTab === 'trends' && (
           <div className="tab-content trends-tab">
             <div className="chart-container">
-              <h2 className="chart-title">{timeRange === 'month' ? 'Monthly' : timeRange === 'week' ? 'Weekly' : 'Daily'} Study Patterns {timeRange !== 'day' && `(${currentData.dateRange})`}</h2>
+              <h2 className="chart-title">{timeRange === 'month' ? 'Monthly' : timeRange === 'week' ? 'Weekly' : 'Hourly'} Study Patterns {timeRange !== 'day' && `(${currentData.dateRange})`}</h2>
               {(currentData.trends && currentData.trends.length > 0) ? (
                 <ResponsiveContainer width="100%" height={400}>
                   <ComposedChart data={currentData.trends} margin={{ top: 20, right: 60, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="day" stroke="#9ca3af" />
+                    <XAxis 
+                      dataKey={timeRange === 'day' ? 'time' : 'day'} 
+                      stroke="#9ca3af"
+                      interval={timeRange === 'day' ? 1 : 0}
+                      angle={timeRange === 'day' ? -45 : 0}
+                      textAnchor={timeRange === 'day' ? 'end' : 'middle'}
+                      height={timeRange === 'day' ? 60 : 30}
+                    />
                     <YAxis 
                       yAxisId="left" 
                       stroke="#10b981" 
@@ -967,9 +974,9 @@ const StudyDashboard = () => {
                       yAxisId="right" 
                       orientation="right" 
                       stroke="#3b82f6" 
-                      domain={[0, 'auto']}
-                      tickFormatter={(v) => `${v}h`}
-                      label={{ value: 'Hours / Breaks', angle: 90, position: 'insideRight', fill: '#3b82f6', fontSize: 12 }}
+                      domain={[0, timeRange === 'day' ? 60 : 'auto']}
+                      tickFormatter={(v) => timeRange === 'day' ? `${v}m` : `${v}h`}
+                      label={{ value: timeRange === 'day' ? 'Minutes / Breaks' : 'Hours / Breaks', angle: 90, position: 'insideRight', fill: '#3b82f6', fontSize: 12 }}
                     />
                     <Tooltip
                       contentStyle={{
@@ -980,12 +987,17 @@ const StudyDashboard = () => {
                       }}
                       formatter={(value, name) => {
                         if (name === 'Focus Score') return [`${value}%`, name];
+                        if (name === 'Study Minutes') return [`${value} min`, name];
                         if (name === 'Study Hours') return [`${value}h`, name];
                         return [value, name];
                       }}
                     />
                     <Legend />
-                    <Bar yAxisId="right" dataKey="studyHours" fill="#3b82f6" name="Study Hours" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    {timeRange === 'day' ? (
+                      <Bar yAxisId="right" dataKey="studyMinutes" fill="#3b82f6" name="Study Minutes" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    ) : (
+                      <Bar yAxisId="right" dataKey="studyHours" fill="#3b82f6" name="Study Hours" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    )}
                     <Bar yAxisId="right" dataKey="breaks" fill="#f59e0b" name="Breaks Taken" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                     <Line 
                       yAxisId="left" 
@@ -1006,33 +1018,62 @@ const StudyDashboard = () => {
             </div>
 
             <div className="stats-grid">
-              <div className="stat-card">
-                <TrendingUp size={24} className="stat-card-icon" />
-                <h3>{timeRange === 'month' ? 'Monthly' : 'Weekly'} Average</h3>
-                <p className="stat-card-value">{currentData.summary?.averageHoursPerDay || 0} hours</p>
-                <p className="stat-card-label">Study time per {timeRange === 'month' ? 'day' : 'day'}</p>
-              </div>
-              <div className="stat-card">
-                <TrendingUp size={24} className="stat-card-icon" />
-                <h3>Best {timeRange === 'month' ? 'Week' : 'Day'}</h3>
-                <p className="stat-card-value">{currentData.summary?.bestDay || 'N/A'}</p>
-                <p className="stat-card-label">{currentData.summary?.bestDayHours || 0} hours, {currentData.summary?.bestDayFocus || 0}% focus</p>
-              </div>
-              <div className="stat-card">
-                <TrendingUp size={24} className="stat-card-icon" />
-                <h3>Focus Trend</h3>
-                <p className="stat-card-value">
-                  {(currentData.summary?.focusTrend || 0) > 0 ? '↑' : (currentData.summary?.focusTrend || 0) < 0 ? '↓' : '→'} {Math.abs(currentData.summary?.focusTrend || 0)}%
-                </p>
-                <p className="stat-card-label">{(currentData.summary?.focusTrend || 0) >= 0 ? 'Improvement' : 'Decline'} this {timeRange}</p>
-              </div>
-              {timeRange !== 'day' && (
-                <div className="stat-card">
-                  <Clock size={24} className="stat-card-icon" />
-                  <h3>Total Hours</h3>
-                  <p className="stat-card-value">{currentData.summary?.totalHours || 0}</p>
-                  <p className="stat-card-label">This {timeRange}</p>
-                </div>
+              {timeRange === 'day' ? (
+                <>
+                  <div className="stat-card">
+                    <TrendingUp size={24} className="stat-card-icon" />
+                    <h3>Total Study Time</h3>
+                    <p className="stat-card-value">{currentData.summary?.totalHours || 0} hours</p>
+                    <p className="stat-card-label">{currentData.summary?.totalStudyMinutes || 0} minutes today</p>
+                  </div>
+                  <div className="stat-card">
+                    <Clock size={24} className="stat-card-icon" />
+                    <h3>Peak Hour</h3>
+                    <p className="stat-card-value">{currentData.summary?.peakHour || 'N/A'}</p>
+                    <p className="stat-card-label">{currentData.summary?.peakMinutes || 0} min of study</p>
+                  </div>
+                  <div className="stat-card">
+                    <TrendingUp size={24} className="stat-card-icon" />
+                    <h3>Average Focus</h3>
+                    <p className="stat-card-value">{currentData.summary?.averageFocusScore || 0}%</p>
+                    <p className="stat-card-label">Focus score today</p>
+                  </div>
+                  <div className="stat-card">
+                    <Clock size={24} className="stat-card-icon" />
+                    <h3>Total Breaks</h3>
+                    <p className="stat-card-value">{currentData.summary?.totalBreaks || 0}</p>
+                    <p className="stat-card-label">Breaks taken today</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="stat-card">
+                    <TrendingUp size={24} className="stat-card-icon" />
+                    <h3>{timeRange === 'month' ? 'Monthly' : 'Weekly'} Average</h3>
+                    <p className="stat-card-value">{currentData.summary?.averageHoursPerDay || 0} hours</p>
+                    <p className="stat-card-label">Study time per day</p>
+                  </div>
+                  <div className="stat-card">
+                    <TrendingUp size={24} className="stat-card-icon" />
+                    <h3>Best {timeRange === 'month' ? 'Week' : 'Day'}</h3>
+                    <p className="stat-card-value">{currentData.summary?.bestDay || 'N/A'}</p>
+                    <p className="stat-card-label">{currentData.summary?.bestDayHours || 0} hours, {currentData.summary?.bestDayFocus || 0}% focus</p>
+                  </div>
+                  <div className="stat-card">
+                    <TrendingUp size={24} className="stat-card-icon" />
+                    <h3>Focus Trend</h3>
+                    <p className="stat-card-value">
+                      {(currentData.summary?.focusTrend || 0) > 0 ? '↑' : (currentData.summary?.focusTrend || 0) < 0 ? '↓' : '→'} {Math.abs(currentData.summary?.focusTrend || 0)}%
+                    </p>
+                    <p className="stat-card-label">{(currentData.summary?.focusTrend || 0) >= 0 ? 'Improvement' : 'Decline'} this {timeRange}</p>
+                  </div>
+                  <div className="stat-card">
+                    <Clock size={24} className="stat-card-icon" />
+                    <h3>Total Hours</h3>
+                    <p className="stat-card-value">{currentData.summary?.totalHours || 0}</p>
+                    <p className="stat-card-label">This {timeRange}</p>
+                  </div>
+                </>
               )}
             </div>
           </div>
