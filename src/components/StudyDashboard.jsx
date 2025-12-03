@@ -451,7 +451,7 @@ const StudyDashboard = () => {
     if (level < 200) return { status: 'Low', color: '#fbbf24', connected: true };
     if (level < 400) return { status: 'Optimal', color: '#4ade80', connected: true };
     if (level < 500) return { status: 'Bright', color: '#fbbf24', connected: true };
-    return { status: 'Too Bright', color: '#ef4444' };
+    return { status: 'Too Bright', color: '#ef4444', connected: true };
   };
 
   const lightQuality = getLightQuality(dashboardStats.lightLevel);
