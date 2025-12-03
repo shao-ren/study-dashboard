@@ -559,7 +559,7 @@ def get_latest_sensor_data():
 @app.route('/api/study_trends', methods=['GET'])
 def get_study_trends():
     """Get weekly study patterns"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
+    device_id = request.args.get('deviceId', 'esp32-ultrasonic')
     days = int(request.args.get('days', 7))
     
     try:
@@ -567,14 +567,26 @@ def get_study_trends():
         trends = []
         day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         
+        sgt_offset = timedelta(hours=8)
+        
         for i in range(days):
             day_offset = days - 1 - i
-            target_date = datetime.now(timezone.utc) - timedelta(days=day_offset)
-            start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
             
-            start_iso = start_of_day.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-            end_iso = end_of_day.strftime('%Y-%m-%dT%H:%M:%S.999Z')
+            # Calculate day boundaries in SGT, then convert to UTC for query
+            now_utc = datetime.now(timezone.utc)
+            now_sgt = now_utc + sgt_offset
+            target_date_sgt = now_sgt - timedelta(days=day_offset)
+            
+            # Start and end of day in SGT
+            start_of_day_sgt = target_date_sgt.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_day_sgt = target_date_sgt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            
+            # Convert back to UTC for DynamoDB query
+            start_of_day_utc = start_of_day_sgt - sgt_offset
+            end_of_day_utc = end_of_day_sgt - sgt_offset
+            
+            start_iso = start_of_day_utc.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+            end_iso = end_of_day_utc.strftime('%Y-%m-%dT%H:%M:%S.999Z')
             
             response = presence_table.query(
                 KeyConditionExpression=Key('deviceId').eq(device_id) & 
@@ -589,11 +601,11 @@ def get_study_trends():
             focus_score = calculate_focus_score(sessions, 8)  # Assume 8 hour study window
             breaks = len(sessions) - 1 if len(sessions) > 0 else 0
             
-            day_name = day_names[target_date.weekday()]
+            day_name = day_names[target_date_sgt.weekday()]
             
             trends.append({
                 'day': day_name,
-                'date': target_date.strftime('%Y-%m-%d'),
+                'date': target_date_sgt.strftime('%Y-%m-%d'),
                 'studyHours': study_hours,
                 'focusScore': focus_score,
                 'breaks': max(breaks, 0),

@@ -185,7 +185,13 @@ const StudyDashboard = () => {
   // ============================================
   // DATA FETCHING
   // ============================================
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (currentTimeRange = 'day') => {
+    // Determine days parameter based on time range
+    // Note: Week and Month use hardcoded data, but we still fetch for 'day' view
+    const daysForTrends = currentTimeRange === 'day' ? 1 : 7;
+    const hoursForStress = currentTimeRange === 'day' ? 6 : 24;
+    const hoursForPresence = currentTimeRange === 'day' ? 24 : 168; // 24 hours for day, 7 days for week
+
     try {
       const [
         dashboardStatsData,
@@ -197,12 +203,12 @@ const StudyDashboard = () => {
         sessionsHistory,
       ] = await Promise.all([
         apiService.fetchDashboardStats(),
-        apiService.fetchProductivityData(),
+        apiService.fetchProductivityData(daysForTrends),
         apiService.fetchInsights(),
         apiService.fetchLatestSensorData(),
-        apiService.fetchStudyTrends(),
-        apiService.fetchStressHistory(),
-        apiService.fetchPresenceHistory(),
+        apiService.fetchStudyTrends(daysForTrends),
+        apiService.fetchStressHistory(hoursForStress),
+        apiService.fetchPresenceHistory(hoursForPresence),
       ]);
 
       // In fetchAllData function
@@ -270,18 +276,18 @@ const StudyDashboard = () => {
       console.error('Error fetching data:', error);
       // setConnectionStatus((prev) => ({ ...prev, api: false }));
     }
-  });
+  }, []);
 
-  // Initial data fetch
+  // Initial data fetch and refetch when timeRange changes
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    fetchAllData(timeRange);
+  }, [fetchAllData, timeRange]);
 
   // Periodic data refresh
   useEffect(() => {
-    const interval = setInterval(fetchAllData, CONFIG.REFRESH_INTERVAL);
+    const interval = setInterval(() => fetchAllData(timeRange), CONFIG.REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchAllData]);
+  }, [fetchAllData, timeRange]);
 
   // ============================================
   // HARDCODED DATA FOR WEEK & MONTH VIEWS
@@ -433,6 +439,8 @@ const StudyDashboard = () => {
           return '#ef4444';
       case 'Angry':
           return '#ef4444';
+      case 'Confused':
+        return '#FFEA00';
       default:
         return '#6b7280';
     }
