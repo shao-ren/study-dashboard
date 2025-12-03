@@ -35,11 +35,13 @@ const CONFIG = {
   WEBSOCKET_PRESENCE: 'wss://72mbqicisa.execute-api.ap-southeast-1.amazonaws.com/production/',
   WEBSOCKET_AMBIENT: 'wss://7ii4srym84.execute-api.ap-southeast-1.amazonaws.com/production/',
   CAMERA_API: 'https://20lv30hxm5.execute-api.ap-southeast-1.amazonaws.com/production/detections',
-  REFRESH_INTERVAL: 10000, // 30 seconds for API data refresh
+  REFRESH_INTERVAL: 5000, // 30 seconds for API data refresh
 };
 
+// ============================================
+// API SERVICE
+// ============================================
 const apiService = {
-  // for main page (overview)
   async fetchDashboardStats() {
     try {
       const response = await fetch(`${CONFIG.API_BASE_URL}/dashboard_stats`);
@@ -47,6 +49,28 @@ const apiService = {
       return await response.json();
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      return null;
+    }
+  },
+
+  async fetchLatestSensorData() {
+    try {
+      const response = await fetch(`${CONFIG.API_BASE_URL}/sensors/latest`);
+      if (!response.ok) throw new Error('Failed to fetch sensor data');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching latest sensor data:', error);
+      return null;
+    }
+  },
+
+  async fetchStudyTrends(days = 7) {
+    try {
+      const response = await fetch(`${CONFIG.API_BASE_URL}/study_trends?days=${days}`);
+      if (!response.ok) throw new Error('Failed to fetch study trends');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching study trends:', error);
       return null;
     }
   },
@@ -62,6 +86,17 @@ const apiService = {
     }
   },
 
+  async fetchStressHistory(hours = 4) {
+    try {
+      const response = await fetch(`${CONFIG.API_BASE_URL}/stress_history?hours=${hours}`);
+      if (!response.ok) throw new Error('Failed to fetch stress history');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching stress history:', error);
+      return null;
+    }
+  },
+
   async fetchInsights() {
     try {
       const response = await fetch(`${CONFIG.API_BASE_URL}/insights`);
@@ -73,43 +108,6 @@ const apiService = {
     }
   },
 
-  // for live sensors page
-  async fetchLatestSensorData() {
-    try {
-      const response = await fetch(`${CONFIG.API_BASE_URL}/sensors/latest`);
-      if (!response.ok) throw new Error('Failed to fetch sensor data');
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching latest sensor data:', error);
-      return null;
-    }
-  },
-
-  // for study trends page
-  async fetchStudyTrends(days = 7) {
-    try {
-      const response = await fetch(`${CONFIG.API_BASE_URL}/study_trends?days=${days}`);
-      if (!response.ok) throw new Error('Failed to fetch study trends');
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching study trends:', error);
-      return null;
-    }
-  },
-
-  // for stress analysis page
-  async fetchStressHistory(hours = 6) {
-    try {
-      const response = await fetch(`${CONFIG.API_BASE_URL}/stress_history?hours=${hours}`);
-      if (!response.ok) throw new Error('Failed to fetch stress history');
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching stress history:', error);
-      return null;
-    }
-  },
-
-  // for sessions page
   async fetchPresenceHistory(hours = 24) {
     try {
       const response = await fetch(`${CONFIG.API_BASE_URL}/presence_history?hours=${hours}`);
@@ -120,8 +118,142 @@ const apiService = {
       return null;
     }
   },
-}
+};
 
+// ============================================
+// HARDCODED DATA FOR WEEK & MONTH VIEWS
+// ============================================
+
+const HARDCODED_WEEK_TRENDS = [
+  { day: 'Fri', date: '2025-11-28', studyHours: 4.5, focusScore: 78, breaks: 3, sessions: 4 },
+  { day: 'Sat', date: '2025-11-29', studyHours: 5.2, focusScore: 82, breaks: 4, sessions: 5 },
+  { day: 'Sun', date: '2025-11-30', studyHours: 3.8, focusScore: 75, breaks: 3, sessions: 3 },
+  { day: 'Mon', date: '2025-12-01', studyHours: 6.1, focusScore: 88, breaks: 5, sessions: 6 },
+  { day: 'Tue', date: '2025-12-02', studyHours: 4.2, focusScore: 76, breaks: 3, sessions: 4 },
+  { day: 'Wed', date: '2025-12-03', studyHours: 5.8, focusScore: 85, breaks: 4, sessions: 5 },
+  { day: 'Thu', date: '2025-12-04', studyHours: 1.5, focusScore: 72, breaks: 2, sessions: 3 },
+];
+
+const HARDCODED_WEEK_SUMMARY = {
+  averageHoursPerDay: 4.4,
+  totalHours: 31.1,
+  bestDay: 'Mon',
+  bestDayHours: 6.1,
+  bestDayFocus: 88,
+  focusTrend: 5,
+};
+
+const HARDCODED_MONTH_TRENDS = [
+  { day: 'Week 1', date: '2025-12-01', studyHours: 21.1, focusScore: 79, breaks: 21, sessions: 22 },
+  { day: 'Week 2', date: '2025-12-08', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
+  { day: 'Week 3', date: '2025-12-15', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
+  { day: 'Week 4', date: '2025-12-22', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
+];
+
+const HARDCODED_MONTH_SUMMARY = {
+  averageHoursPerDay: 5.3,
+  totalHours: 21.1,
+  bestDay: 'Week 1',
+  bestDayHours: 21.1,
+  bestDayFocus: 79,
+  focusTrend: 0,
+};
+
+const HARDCODED_WEEK_PRODUCTIVITY = [
+  { time: '6am', productivity: 15 },
+  { time: '8am', productivity: 55 },
+  { time: '10am', productivity: 82 },
+  { time: '12pm', productivity: 68 },
+  { time: '2pm', productivity: 62 },
+  { time: '4pm', productivity: 71 },
+  { time: '6pm', productivity: 48 },
+  { time: '8pm', productivity: 38 },
+  { time: '10pm', productivity: 25 },
+];
+
+const HARDCODED_MONTH_PRODUCTIVITY = [
+  { time: '6am', productivity: 12 },
+  { time: '8am', productivity: 52 },
+  { time: '10am', productivity: 78 },
+  { time: '12pm', productivity: 65 },
+  { time: '2pm', productivity: 58 },
+  { time: '4pm', productivity: 68 },
+  { time: '6pm', productivity: 45 },
+  { time: '8pm', productivity: 35 },
+  { time: '10pm', productivity: 22 },
+];
+
+const HARDCODED_WEEK_STRESS = [
+  { time: '9:00', stress: 25, anxiety: 10, calm: 65 },
+  { time: '9:30', stress: 32, anxiety: 15, calm: 53 },
+  { time: '10:00', stress: 35, anxiety: 20, calm: 45 },
+  { time: '10:30', stress: 38, anxiety: 22, calm: 40 },
+  { time: '11:00', stress: 42, anxiety: 25, calm: 33 },
+  { time: '11:30', stress: 35, anxiety: 18, calm: 47 },
+  { time: '12:00', stress: 28, anxiety: 12, calm: 60 },
+  { time: '12:30', stress: 30, anxiety: 14, calm: 56 },
+  { time: '1:00', stress: 26, anxiety: 11, calm: 63 },
+  { time: '1:30', stress: 33, anxiety: 16, calm: 51 },
+  { time: '2:00', stress: 38, anxiety: 20, calm: 42 },
+];
+
+const HARDCODED_WEEK_STRESS_SUMMARY = {
+  peakStress: 42,
+  peakTime: '11:00 AM',
+  averageAnxiety: 17,
+  averageCalm: 50,
+};
+
+const HARDCODED_MONTH_STRESS = [
+  { time: 'Week 1', stress: 38, anxiety: 20, calm: 42 },
+  { time: 'Week 2', stress: 32, anxiety: 15, calm: 53 },
+  { time: 'Week 3', stress: 28, anxiety: 12, calm: 60 },
+  { time: 'Week 4', stress: 35, anxiety: 18, calm: 47 },
+];
+
+const HARDCODED_MONTH_STRESS_SUMMARY = {
+  peakStress: 38,
+  peakTime: 'Week 1',
+  averageAnxiety: 16,
+  averageCalm: 51,
+};
+
+const HARDCODED_WEEK_SESSIONS = [
+  // Nov 28, 2025 (Fri)
+  { start: 1732780800, end: 1732788000, duration_minutes: 120 },
+  { start: 1732791600, end: 1732797000, duration_minutes: 90 },
+  // Nov 29, 2025 (Sat)
+  { start: 1732867200, end: 1732878000, duration_minutes: 180 },
+  // Nov 30, 2025 (Sun)
+  { start: 1732953600, end: 1732960800, duration_minutes: 120 },
+  // Dec 1, 2025 (Mon)
+  { start: 1733040000, end: 1733050800, duration_minutes: 180 },
+  { start: 1733054400, end: 1733061600, duration_minutes: 120 },
+  // Dec 2, 2025 (Tue)
+  { start: 1733126400, end: 1733133600, duration_minutes: 120 },
+  // Dec 3, 2025 (Wed)
+  { start: 1733212800, end: 1733223600, duration_minutes: 180 },
+  // Dec 4, 2025 (Thu - Demo Day)
+  { start: 1733299200, end: 1733304600, duration_minutes: 90 },
+];
+
+const HARDCODED_MONTH_SESSIONS = [
+  // Dec 1, 2025 (Mon)
+  { start: 1733040000, end: 1733050800, duration_minutes: 180 },
+  { start: 1733054400, end: 1733061600, duration_minutes: 120 },
+  // Dec 2, 2025 (Tue)
+  { start: 1733126400, end: 1733133600, duration_minutes: 120 },
+  { start: 1733140800, end: 1733148000, duration_minutes: 120 },
+  // Dec 3, 2025 (Wed)
+  { start: 1733212800, end: 1733223600, duration_minutes: 180 },
+  { start: 1733227200, end: 1733234400, duration_minutes: 120 },
+  // Dec 4, 2025 (Thu - Demo Day)
+  { start: 1733299200, end: 1733304600, duration_minutes: 90 },
+];
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 const StudyDashboard = () => {
   // Tab state
   const [activeTab, setActiveTab] = useState('overview');
@@ -133,33 +265,33 @@ const StudyDashboard = () => {
   const [connectionStatus, setConnectionStatus] = useState({
     presence: false,
     ambient: false,
-    camera: false,
     api: false,
   });
-
-  // Dashboard stats
-  const [dashboardStats, setDashboardStats] = useState({
-    sessionTime: '0h 0m 0s',
-    focusScore: 0,
-    lightLevel: 0,
-    presenceDetected: false,
-    emotionState: 'Calm',
-    stressLevel: 0,
-  });
-
-  const [productivity, setProductivity] = useState([]);
-  const [insights, setInsights] = useState([]);
 
   // Real-time sensor data (from WebSocket)
   const [sensorData, setSensorData] = useState({
     lightLevel: 0,
     presenceDetected: false,
     distanceCm: 0,
-    emotionState: 'Calm',
+    emotionState: 'calm',
     stressLevel: 0,
   });
 
+  // Dashboard stats
+  const [dashboardStats, setDashboardStats] = useState({
+    sessionTime: '0h 0m',
+    focusScore: 0,
+  });
+
   // Historical data
+  const [stressHistory, setStressHistory] = useState([]);
+  const [stressSummary, setStressSummary] = useState({
+    peakStress: 0,
+    peakTime: 'N/A',
+    averageAnxiety: 0,
+    averageCalm: 100,
+  });
+
   const [studyTrends, setStudyTrends] = useState([]);
   const [studyTrendsSummary, setStudyTrendsSummary] = useState({
     averageHoursPerDay: 0,
@@ -168,81 +300,220 @@ const StudyDashboard = () => {
     bestDayFocus: 0,
     focusTrend: 0,
   });
-  
-  const [stressHistory, setStressHistory] = useState([]);
-  const [stressSummary, setStressSummary] = useState({
-    peakStress: 0,
-    peakTime: 'N/A',
-    averageAnxiety: 0,
-    averageCalm: 100,
-  })
 
+  const [productivityData, setProductivityData] = useState([]);
+  const [insights, setInsights] = useState([]);
   const [sessions, setSessions] = useState([]);
+
+  // Loading states
+  const [loading, setLoading] = useState(true);
+
+  // ============================================
+  // WEBSOCKET CONNECTIONS (settled)
+  // ============================================
+  const presenceSocketRef = useRef(null);
+  const ambientSocketRef = useRef(null);
+
+  useEffect(() => {
+    if (presenceSocketRef.current || ambientSocketRef.current) {
+      return;
+    }
+
+    const connectPresenceSocket = () => {
+      if (presenceSocketRef.current) {
+        presenceSocketRef.current.close();
+      }
+
+      try {
+        const presenceSocket = new WebSocket(CONFIG.WEBSOCKET_PRESENCE);
+        presenceSocketRef.current = presenceSocket;
+
+        presenceSocket.onopen = () => {
+          console.log('Connected to Presence Sensor WebSocket');
+          setConnectionStatus((prev) => ({ ...prev, presence: true }));
+        };
+
+        presenceSocket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('Presence data received:', data);
+            setSensorData((prev) => ({
+              ...prev,
+              presenceDetected: data.presence ?? prev.presenceDetected,
+              distanceCm: data.distanceCm ?? prev.distanceCm,
+            }));
+          } catch (err) {
+            console.error('Error parsing presence data:', err);
+          }
+        };
+
+        presenceSocket.onclose = () => {
+          console.log('Presence WebSocket closed, reconnecting...');
+          setConnectionStatus((prev) => ({ ...prev, presence: false }));
+          presenceSocketRef.current = null;
+          setTimeout(connectPresenceSocket, CONFIG.REFRESH_INTERVAL);
+        };
+
+        presenceSocket.onerror = (error) => {
+          console.error('Presence WebSocket error:', error);
+        };
+      } catch (error) {
+        console.error('Failed to connect to Presence WebSocket:', error);
+      }
+    };
+
+    const connectAmbientSocket = () => {
+      if (ambientSocketRef.current) {
+        ambientSocketRef.current.close();
+      }
+
+      try {
+        const ambientSocket = new WebSocket(CONFIG.WEBSOCKET_AMBIENT);
+        ambientSocketRef.current = ambientSocket;
+
+        ambientSocket.onopen = () => {
+          console.log('Connected to Ambient Sensor WebSocket');
+          setConnectionStatus((prev) => ({ ...prev, ambient: true }));
+        };
+
+        ambientSocket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('Ambient data received:', data);
+            setSensorData((prev) => ({
+              ...prev,
+              lightLevel: data.ambientLux ?? prev.lightLevel,
+            }));
+          } catch (err) {
+            console.error('Error parsing ambient data:', err);
+          }
+        };
+
+        ambientSocket.onclose = () => {
+          console.log('Ambient WebSocket closed, reconnecting...');
+          setConnectionStatus((prev) => ({ ...prev, ambient: false }));
+          ambientSocketRef.current = null;
+          setTimeout(connectAmbientSocket, CONFIG.REFRESH_INTERVAL);
+        };
+
+        ambientSocket.onerror = (error) => {
+          console.error('Ambient WebSocket error:', error);
+        };
+      } catch (error) {
+        console.error('Failed to connect to Ambient WebSocket:', error);
+      }
+    };
+
+    // Connect to both WebSockets
+    connectPresenceSocket();
+    connectAmbientSocket();
+
+    // Cleanup on unmount
+    return () => {
+      if (presenceSocketRef.current) {
+        presenceSocketRef.current.onclose = null;
+        presenceSocketRef.current.close();
+        presenceSocketRef.current = null;
+      }
+
+      if (ambientSocketRef.current) {
+        ambientSocketRef.current.onclose = null;
+        ambientSocketRef.current.close();
+        ambientSocketRef.current = null;
+      }
+    };
+  }, []);
+
+  const fetchDetections = useCallback(async () => {
+    try {
+      
+      const response = await fetch(CONFIG.CAMERA_API);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP Error. STatus: ${response.status}`)
+      }
+      
+      const result = await response.json();
+
+      let finalData = result[0];
+      const emotion = finalData.primaryEmotion
+      const formatted_emotion = emotion.charAt(0).toUpperCase() + emotion.slice(1).toLowerCase();
+      const stress_percent = parseFloat(finalData.stressScore) * 100
+
+      setSensorData((prev) => ({
+        ...prev,
+        emotionState: formatted_emotion ?? prev.emotionState,
+        stressLevel: stress_percent ?? prev.stressLevel,
+      }));
+    } catch (err) {
+      console.error('Error parsing stress data: ', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDetections();
+
+    const intervalId = setInterval(() => {
+      fetchDetections();
+    }, CONFIG.REFRESH_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [fetchDetections]);
 
   // ============================================
   // DATA FETCHING
   // ============================================
   const fetchAllData = useCallback(async () => {
     try {
+      // Fetch all data in parallel
       const [
-        dashboardStatsData,
-        productivityData,
-        insightsData,
+        statsData,
         latestSensorData,
         trendsData,
+        productivityDataResult,
         stressData,
-        sessionsHistory,
+        insightsData,
+        presenceData,
       ] = await Promise.all([
         apiService.fetchDashboardStats(),
-        apiService.fetchProductivityData(),
-        apiService.fetchInsights(),
         apiService.fetchLatestSensorData(),
         apiService.fetchStudyTrends(),
+        apiService.fetchProductivityData(),
         apiService.fetchStressHistory(),
+        apiService.fetchInsights(),
         apiService.fetchPresenceHistory(),
       ]);
 
-      // setConnectionStatus((prev) => ({ ...prev, api: true }));
+      setConnectionStatus((prev) => ({ ...prev, api: true }));
 
       // Update dashboard stats
-      if (dashboardStatsData) {
+      if (statsData) {
         setDashboardStats({
-          sessionTime: dashboardStatsData.sessionTime || '0h 0m 0s',
-          focusScore: dashboardStatsData.focusScore || 0,
-          lightLevel: dashboardStatsData.lightLevel || 0,
-          presenceDetected: dashboardStatsData.presenceDetected || false,
-          emotionState: dashboardStatsData.emotionState || 'Calm',
-          stressLevel: dashboardStatsData.stressLevel || 0.0,
+          sessionTime: statsData.sessionTime || '0h 0m',
+          focusScore: statsData.focusScore || 0,
         });
-        // console.log("dashboard stats:", dashboardStatsData)
       }
 
-      // Update productivity data
-      if (productivityData && productivityData.data) {
-        setProductivity(productivityData.data);
-      }
-
-      // Update insights
-      if (insightsData && insightsData.insights) {
-        setInsights(insightsData.insights);
-      }
-
-      // Update sensor data from API
+      // Update sensor data from API (fallback if WebSocket not connected)
       if (latestSensorData) {
-        setSensorData({
-          lightLevel: latestSensorData.lightLevel || 0,
-          presenceDetected: latestSensorData.presenceDetected || false,
-          distanceCm: latestSensorData.distanceCm || 0.0,
-          emotionState: latestSensorData.emotionState || 'Calm',
-          stressLevel: latestSensorData.stressLevel || 0.0,
-        })
+        setSensorData((prev) => ({
+          ...prev,
+          lightLevel: prev.lightLevel || latestSensorData.lightLevel || 0,
+          presenceDetected: prev.presenceDetected || latestSensorData.presence || false,
+          distanceCm: prev.distanceCm || latestSensorData.distanceCm || 0,
+          emotionState: prev.emotionState || latestSensorData.emotionState || 'Calm'
+        }));
       }
 
       // Update study trends
       if (trendsData) {
         setStudyTrends(trendsData.trends || []);
         setStudyTrendsSummary(trendsData.summary || {});
+      }
 
+      // Update productivity data
+      if (productivityDataResult && productivityDataResult.data) {
+        setProductivityData(productivityDataResult.data);
       }
 
       // Update stress history
@@ -251,16 +522,20 @@ const StudyDashboard = () => {
         setStressSummary(stressData.summary || {});
       }
 
-      // Update sessions
-      if (sessionsHistory) {
-        setSessions(sessionsHistory.sessions)
+      // Update insights
+      if (insightsData && insightsData.insights) {
+        setInsights(insightsData.insights);
       }
 
+      // Update sessions
+      if (presenceData && presenceData.sessions) {
+        setSessions(presenceData.sessions);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      // setConnectionStatus((prev) => ({ ...prev, api: false }));
+      setConnectionStatus((prev) => ({ ...prev, api: false }));
     }
-  });
+  }, []);
 
   // Initial data fetch
   useEffect(() => {
@@ -272,136 +547,6 @@ const StudyDashboard = () => {
     const interval = setInterval(fetchAllData, CONFIG.REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchAllData]);
-
-  // ============================================
-  // HARDCODED DATA FOR WEEK & MONTH VIEWS
-  // ============================================
-  const HARDCODED_WEEK_TRENDS = [
-    { day: 'Fri', date: '2025-11-28', studyHours: 4.5, focusScore: 78, breaks: 3, sessions: 4 },
-    { day: 'Sat', date: '2025-11-29', studyHours: 5.2, focusScore: 82, breaks: 4, sessions: 5 },
-    { day: 'Sun', date: '2025-11-30', studyHours: 3.8, focusScore: 75, breaks: 3, sessions: 3 },
-    { day: 'Mon', date: '2025-12-01', studyHours: 6.1, focusScore: 88, breaks: 5, sessions: 6 },
-    { day: 'Tue', date: '2025-12-02', studyHours: 4.2, focusScore: 76, breaks: 3, sessions: 4 },
-    { day: 'Wed', date: '2025-12-03', studyHours: 5.8, focusScore: 85, breaks: 4, sessions: 5 },
-    { day: 'Thu', date: '2025-12-04', studyHours: 1.5, focusScore: 72, breaks: 2, sessions: 3 },
-  ];
-  
-  const HARDCODED_WEEK_SUMMARY = {
-    averageHoursPerDay: 4.4,
-    totalHours: 31.1,
-    bestDay: 'Mon',
-    bestDayHours: 6.1,
-    bestDayFocus: 88,
-    focusTrend: 5,
-  };
-  
-  const HARDCODED_MONTH_TRENDS = [
-    { day: 'Week 1', date: '2025-12-01', studyHours: 21.1, focusScore: 79, breaks: 21, sessions: 22 },
-    { day: 'Week 2', date: '2025-12-08', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
-    { day: 'Week 3', date: '2025-12-15', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
-    { day: 'Week 4', date: '2025-12-22', studyHours: 0, focusScore: 0, breaks: 0, sessions: 0 },
-  ];
-  
-  const HARDCODED_MONTH_SUMMARY = {
-    averageHoursPerDay: 5.3,
-    totalHours: 21.1,
-    bestDay: 'Week 1',
-    bestDayHours: 21.1,
-    bestDayFocus: 79,
-    focusTrend: 0,
-  };
-  
-  const HARDCODED_WEEK_PRODUCTIVITY = [
-    { time: '6am', productivity: 15 },
-    { time: '8am', productivity: 55 },
-    { time: '10am', productivity: 82 },
-    { time: '12pm', productivity: 68 },
-    { time: '2pm', productivity: 62 },
-    { time: '4pm', productivity: 71 },
-    { time: '6pm', productivity: 48 },
-    { time: '8pm', productivity: 38 },
-    { time: '10pm', productivity: 25 },
-  ];
-  
-  const HARDCODED_MONTH_PRODUCTIVITY = [
-    { time: '6am', productivity: 12 },
-    { time: '8am', productivity: 52 },
-    { time: '10am', productivity: 78 },
-    { time: '12pm', productivity: 65 },
-    { time: '2pm', productivity: 58 },
-    { time: '4pm', productivity: 68 },
-    { time: '6pm', productivity: 45 },
-    { time: '8pm', productivity: 35 },
-    { time: '10pm', productivity: 22 },
-  ];
-
-  const HARDCODED_WEEK_STRESS = [
-    { time: '9:00', stress: 25, anxiety: 10, calm: 65 },
-    { time: '9:30', stress: 32, anxiety: 15, calm: 53 },
-    { time: '10:00', stress: 35, anxiety: 20, calm: 45 },
-    { time: '10:30', stress: 38, anxiety: 22, calm: 40 },
-    { time: '11:00', stress: 42, anxiety: 25, calm: 33 },
-    { time: '11:30', stress: 35, anxiety: 18, calm: 47 },
-    { time: '12:00', stress: 28, anxiety: 12, calm: 60 },
-    { time: '12:30', stress: 30, anxiety: 14, calm: 56 },
-    { time: '1:00', stress: 26, anxiety: 11, calm: 63 },
-    { time: '1:30', stress: 33, anxiety: 16, calm: 51 },
-    { time: '2:00', stress: 38, anxiety: 20, calm: 42 },
-  ];
-  
-  const HARDCODED_WEEK_STRESS_SUMMARY = {
-    peakStress: 42,
-    peakTime: '11:00 AM',
-    averageAnxiety: 17,
-    averageCalm: 50,
-  };
-  
-  const HARDCODED_MONTH_STRESS = [
-    { time: 'Week 1', stress: 38, anxiety: 20, calm: 42 },
-    { time: 'Week 2', stress: 32, anxiety: 15, calm: 53 },
-    { time: 'Week 3', stress: 28, anxiety: 12, calm: 60 },
-    { time: 'Week 4', stress: 35, anxiety: 18, calm: 47 },
-  ];
-  
-  const HARDCODED_MONTH_STRESS_SUMMARY = {
-    peakStress: 38,
-    peakTime: 'Week 1',
-    averageAnxiety: 16,
-    averageCalm: 51,
-  };
-
-  const HARDCODED_WEEK_SESSIONS = [
-    // Nov 28, 2025 (Fri)
-    { start: 1732780800, end: 1732788000, duration_minutes: 120 },
-    { start: 1732791600, end: 1732797000, duration_minutes: 90 },
-    // Nov 29, 2025 (Sat)
-    { start: 1732867200, end: 1732878000, duration_minutes: 180 },
-    // Nov 30, 2025 (Sun)
-    { start: 1732953600, end: 1732960800, duration_minutes: 120 },
-    // Dec 1, 2025 (Mon)
-    { start: 1733040000, end: 1733050800, duration_minutes: 180 },
-    { start: 1733054400, end: 1733061600, duration_minutes: 120 },
-    // Dec 2, 2025 (Tue)
-    { start: 1733126400, end: 1733133600, duration_minutes: 120 },
-    // Dec 3, 2025 (Wed)
-    { start: 1733212800, end: 1733223600, duration_minutes: 180 },
-    // Dec 4, 2025 (Thu - Demo Day)
-    { start: 1733299200, end: 1733304600, duration_minutes: 90 },
-  ];
-  
-  const HARDCODED_MONTH_SESSIONS = [
-    // Dec 1, 2025 (Mon)
-    { start: 1733040000, end: 1733050800, duration_minutes: 180 },
-    { start: 1733054400, end: 1733061600, duration_minutes: 120 },
-    // Dec 2, 2025 (Tue)
-    { start: 1733126400, end: 1733133600, duration_minutes: 120 },
-    { start: 1733140800, end: 1733148000, duration_minutes: 120 },
-    // Dec 3, 2025 (Wed)
-    { start: 1733212800, end: 1733223600, duration_minutes: 180 },
-    { start: 1733227200, end: 1733234400, duration_minutes: 120 },
-    // Dec 4, 2025 (Thu - Demo Day)
-    { start: 1733299200, end: 1733304600, duration_minutes: 90 },
-  ];
 
   // ============================================
   // HELPER FUNCTIONS
@@ -436,13 +581,21 @@ const StudyDashboard = () => {
 
   const getLightQuality = (level) => {
     if (level < 50) return { status: 'Too Dark', color: '#6b7280' };
-    if (level < 200) return { status: 'Low', color: '#fbbf24' };
-    if (level < 400) return { status: 'Optimal', color: '#4ade80' };
-    if (level < 500) return { status: 'Bright', color: '#fbbf24' };
+    if (level < 100) return { status: 'Low', color: '#fbbf24' };
+    if (level < 500) return { status: 'Optimal', color: '#4ade80' };
+    if (level < 1000) return { status: 'Bright', color: '#fbbf24' };
     return { status: 'Too Bright', color: '#ef4444' };
   };
 
-  const lightQuality = getLightQuality(dashboardStats.lightLevel);
+  const lightQuality = getLightQuality(sensorData.lightLevel);
+
+  // Calculate session activity percentage
+  const calculateSessionActivity = () => {
+    if (!sessions || sessions.length === 0) return 0;
+    const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+    // Assume 8-hour work day = 480 minutes
+    return Math.min(Math.round((totalMinutes / 480) * 100), 100);
+  };
 
   // Get data based on selected time range
   const getTimeRangeData = () => {
@@ -474,7 +627,7 @@ const StudyDashboard = () => {
         return {
           trends: studyTrends,
           summary: studyTrendsSummary,
-          productivity: productivity,
+          productivity: productivityData,
           stress: stressHistory,
           stressSummary: stressSummary,
           sessions: sessions,
@@ -510,36 +663,6 @@ const StudyDashboard = () => {
     </div>
   );
 
-  // for the heatmap
-  const getHeatmapColor = (score) => {
-    if (score === 0) return '#e5e7eb'; // Grey (Empty)
-    if (score < 30) return '#fcd34d';  // Yellow
-    if (score < 60) return '#fbbf24';  // Orange
-    if (score < 85) return '#34d399';  // Light Green
-    return '#10b981';                  // Deep Green
-  };
-  
-  const timeLabels = ['12am', '2am', '4am', '6am', '8am', '10am', '12pm', '2pm', '4pm', '6pm', '8pm', '10pm'];
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  
-  // Map "6am" display text to backend integer "6"
-  const timeToHourMap = {
-    '12am': 0, '2am': 2, '4am': 4,
-    '6am': 6, '8am': 8, '10am': 10, '12pm': 12,
-    '2pm': 14, '4pm': 16, '6pm': 18, '8pm': 20, '10pm': 22
-  };
-  
-  const getScore = (data, day, timeLabel) => {
-    if (!data) return 0;
-    const targetHour = timeToHourMap[timeLabel];
-    
-    // Find the exact data point for this Day + Hour
-    // Note: We sum targetHour + targetHour+1 to simulate 2-hour blocks if desired,
-    // or just look for the specific hour. Here we look for the specific hour.
-    const entry = data.find(d => d.day === day && d.hour === targetHour);
-    return entry ? entry.productivity : 0;
-  };
-
   // ============================================
   // RENDER
   // ============================================
@@ -548,9 +671,9 @@ const StudyDashboard = () => {
       {/* Header */}
       <header className="dashboard-header">
         <div className="header-content">
-          <h1>Study Environment Dashboard</h1>
+          <h1>📚 Study Environment Dashboard</h1>
           <p>Real-time IoT sensor monitoring & productivity insights</p>
-          {/* <div className="connection-status">
+          <div className="connection-status">
             <span className={`status-dot ${connectionStatus.presence ? 'connected' : 'disconnected'}`}>
               {connectionStatus.presence ? <Wifi size={14} /> : <WifiOff size={14} />}
               Presence
@@ -559,15 +682,11 @@ const StudyDashboard = () => {
               {connectionStatus.ambient ? <Wifi size={14} /> : <WifiOff size={14} />}
               Ambient
             </span>
-            <span className={`status-dot ${connectionStatus.camera ? 'connected' : 'disconnected'}`}>
-              {connectionStatus.camera ? <Wifi size={14} /> : <WifiOff size={14} />}
-              Camera
-            </span>
             <span className={`status-dot ${connectionStatus.api ? 'connected' : 'disconnected'}`}>
               {connectionStatus.api ? <Wifi size={14} /> : <WifiOff size={14} />}
               API
             </span>
-          </div> */}
+          </div>
         </div>
         <div className="header-stats">
           <div className="stat-badge">
@@ -615,7 +734,7 @@ const StudyDashboard = () => {
             Sessions
           </button>
         </div>
-        {(activeTab === 'trends' || activeTab === 'stress' || activeTab === 'sessions') && <TimeRangeSelector />}
+        {(activeTab === 'overview' || activeTab === 'trends' || activeTab === 'stress' || activeTab === 'sessions') && <TimeRangeSelector />}
       </nav>
 
       {/* Time Range Info Banner */}
@@ -628,6 +747,12 @@ const StudyDashboard = () => {
 
       {/* Dashboard Content */}
       <div className="dashboard-content">
+        {/* {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <p>Loading dashboard data...</p>
+          </div>
+        )} */}
 
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
@@ -639,7 +764,7 @@ const StudyDashboard = () => {
                   <Cloud size={24} className="kpi-icon" />
                   <span className="kpi-title">Light Level</span>
                 </div>
-                <div className="kpi-value">{Math.round(dashboardStats.lightLevel)} lux</div>
+                <div className="kpi-value">{Math.round(sensorData.lightLevel)} lux</div>
                 <div className="kpi-status" style={{ color: lightQuality.color }}>
                   {lightQuality.status}
                 </div>
@@ -650,9 +775,9 @@ const StudyDashboard = () => {
                   <Zap size={24} className="kpi-icon" />
                   <span className="kpi-title">Presence</span>
                 </div>
-                <div className="kpi-value">{dashboardStats.presenceDetected ? 'Detected' : 'Away'}</div>
-                <div className="kpi-status" style={{ color: dashboardStats.presenceDetected ? '#4ade80' : '#ef4444' }}>
-                  {dashboardStats.presenceDetected ? 'Active' : 'Inactive'}
+                <div className="kpi-value">{sensorData.presenceDetected ? 'Detected' : 'Away'}</div>
+                <div className="kpi-status" style={{ color: sensorData.presenceDetected ? '#4ade80' : '#ef4444' }}>
+                  {sensorData.presenceDetected ? 'Active' : 'Inactive'}
                 </div>
               </div>
 
@@ -661,8 +786,8 @@ const StudyDashboard = () => {
                   <Eye size={24} className="kpi-icon" />
                   <span className="kpi-title">Emotion</span>
                 </div>
-                <div className="kpi-value">{dashboardStats.emotionState}</div>
-                <div className="kpi-status" style={{ color: getEmotionColor(dashboardStats.emotionState) }}>
+                <div className="kpi-value">{sensorData.emotionState.charAt(0).toUpperCase() + sensorData.emotionState.slice(1)}</div>
+                <div className="kpi-status" style={{ color: getEmotionColor(sensorData.emotionState) }}>
                   ● Detected
                 </div>
               </div>
@@ -672,71 +797,53 @@ const StudyDashboard = () => {
                   <Heart size={24} className="kpi-icon" />
                   <span className="kpi-title">Stress Level</span>
                 </div>
-                <div className="kpi-value">{Math.round(dashboardStats.stressLevel)}%</div>
-                <div className="kpi-status" style={{ color: getStressColor(dashboardStats.stressLevel) }}>
-                  {dashboardStats.stressLevel < 30 ? 'Low' : dashboardStats.stressLevel < 60 ? 'Moderate' : 'High'}
+                <div className="kpi-value">{Math.round(sensorData.stressLevel)}%</div>
+                <div className="kpi-status" style={{ color: getStressColor(sensorData.stressLevel) }}>
+                  {sensorData.stressLevel < 30 ? 'Low' : sensorData.stressLevel < 60 ? 'Moderate' : 'High'}
                 </div>
               </div>
             </div>
 
             {/* Productivity Heatmap */}
             <div className="chart-container">
-              <h2 className="chart-title">
-                Productivity Heatmap {timeRange !== 'day' && `(${currentData.label})`}
-              </h2>
-              
+              <h2 className="chart-title">⏰ Productivity by Time of Day {timeRange !== 'day' && `(${currentData.label})`}</h2>
               {(currentData.productivity && currentData.productivity.length > 0) ? (
-                <div className="heatmap-wrapper">
-                  
-                  {/* 1. Time Headers */}
-                  <div className="heatmap-header">
-                    <div className="y-axis-spacer"></div>
-                    {timeLabels.map(time => (
-                      <div key={time} className="x-axis-label">{time}</div>
-                    ))}
-                  </div>
-
-                  {/* 2. Grid Rows */}
-                  {days.map(day => (
-                    <div key={day} className="heatmap-row">
-                      <div className="y-axis-label">{day}</div>
-                      <div className="heatmap-cells">
-                        {timeLabels.map(time => {
-                          const score = getScore(currentData.productivity, day, time);
-                          return (
-                            <div
-                              key={`${day}-${time}`}
-                              className="heatmap-cell"
-                              style={{ backgroundColor: getHeatmapColor(score) }}
-                              title={`${day} ${time}: ${score}% Productive`}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* 3. Legend */}
-                  <div className="heatmap-legend">
-                    <span>Less</span>
-                    <div className="legend-box" style={{background: '#e5e7eb'}}></div>
-                    <div className="legend-box" style={{background: '#fcd34d'}}></div>
-                    <div className="legend-box" style={{background: '#fbbf24'}}></div>
-                    <div className="legend-box" style={{background: '#34d399'}}></div>
-                    <div className="legend-box" style={{background: '#10b981'}}></div>
-                    <span>More</span>
-                  </div>
-
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={currentData.productivity} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorProductivity" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="time" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#1f2937',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#fff',
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="productivity"
+                      stroke="#3b82f6"
+                      fillOpacity={1}
+                      fill="url(#colorProductivity)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="no-data">No productivity data available yet.</div>
+                <div className="no-data">No productivity data available yet. Start studying to see your patterns!</div>
               )}
             </div>
-            
 
             {/* Smart Insights */}
             <div className="insights-section">
-              <h2 className="section-title">Smart Insights</h2>
+              <h2 className="section-title">💡 Smart Insights</h2>
               <div className="insights-grid">
                 {insights.length > 0 ? (
                   insights.map((insight) => (
@@ -778,7 +885,7 @@ const StudyDashboard = () => {
                 </div>
                 <div className="sensor-details">
                   <p><strong>Status:</strong> <span style={{ color: lightQuality.color }}>{lightQuality.status}, {sensorData.lightLevel < 200 ? 'Increase brightness' : sensorData.lightLevel > 500 ? 'Reduce brightness' : 'Perfect lighting'}</span></p>
-                  <p><strong>Optimal Range:</strong> 200-400 lux</p>
+                  <p><strong>Optimal Range:</strong> 200-500 lux</p>
                   <p></p>
                 </div>
                 <div className="sensor-chart">
@@ -885,7 +992,7 @@ const StudyDashboard = () => {
         {activeTab === 'trends' && (
           <div className="tab-content trends-tab">
             <div className="chart-container">
-              <h2 className="chart-title">{timeRange === 'month' ? 'Monthly' : timeRange === 'week' ? 'Weekly' : 'Daily'} Study Patterns {timeRange !== 'day' && `(${currentData.dateRange})`}</h2>
+              <h2 className="chart-title">📊 {timeRange === 'month' ? 'Monthly' : timeRange === 'week' ? 'Weekly' : 'Daily'} Study Patterns {timeRange !== 'day' && `(${currentData.dateRange})`}</h2>
               {(currentData.trends && currentData.trends.length > 0) ? (
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={currentData.trends} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
@@ -948,7 +1055,7 @@ const StudyDashboard = () => {
         {activeTab === 'stress' && (
           <div className="tab-content stress-tab">
             <div className="chart-container">
-              <h2 className="chart-title">Stress Level Tracking {timeRange !== 'day' && `(${currentData.label})`}</h2>
+              <h2 className="chart-title">📈 Stress Level Tracking {timeRange !== 'day' && `(${currentData.label})`}</h2>
               {(currentData.stress && currentData.stress.length > 0) ? (
                 <ResponsiveContainer width="100%" height={400}>
                   <AreaChart data={currentData.stress} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -1036,7 +1143,7 @@ const StudyDashboard = () => {
         {activeTab === 'sessions' && (
           <div className="tab-content sessions-tab">
             <div className="chart-container">
-              <h2 className="chart-title">Activity Sessions ({currentData.label}) {`- ${currentData.dateRange}`}</h2>
+              <h2 className="chart-title">📋 Activity Sessions ({currentData.label}) {timeRange !== 'day' && `- ${currentData.dateRange}`}</h2>
               {(currentData.sessions && currentData.sessions.length > 0) ? (
                 <div className="sessions-table">
                   <table>
@@ -1050,19 +1157,9 @@ const StudyDashboard = () => {
                     <tbody>
                       {currentData.sessions.map((session, index) => (
                         <tr key={index}>
-                          <td>{new Date(session.start * 1000).toLocaleString('en-GB', {
-                            hour12: false,
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                          })}</td>
-                          <td>{new Date(session.end * 1000).toLocaleString('en-GB', {
-                            hour12: false,
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                          })}</td>
-                          <td>{Number(session.duration_minutes || 0).toFixed(1)} minutes</td>
+                          <td>{new Date(session.start * 1000).toLocaleString()}</td>
+                          <td>{new Date(session.end * 1000).toLocaleString()}</td>
+                          <td>{Number(session.duration_minutes || 0).toFixed(1)} mins</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1103,7 +1200,7 @@ const StudyDashboard = () => {
         )}
       </div>
     </div>
-  )
+  );
 };
 
 export default StudyDashboard;

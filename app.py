@@ -7,6 +7,7 @@ from decimal import Decimal
 import json
 import os
 from dotenv import load_dotenv
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -35,20 +36,9 @@ dynamodb = boto3.resource(
 )
 
 # Tables
-TABLE_NAME = os.getenv('DYNAMODB_TABLE_NAME', 'ProximitySensorData')
-presence_table = dynamodb.Table(TABLE_NAME)
-
-# Try to access other tables if they exist
-try:
-    ambient_table = dynamodb.Table('AmbientSensorData')
-except:
-    ambient_table = None
-
-try:
-    stress_table = dynamodb.Table('StressSensorData')
-except:
-    stress_table = None
-
+presence_table = dynamodb.Table('ProximitySensorData')
+ambient_table = dynamodb.Table('AmbientSensorData')
+stress_table = dynamodb.Table('FaceDetections')
 
 # ============================================
 # HELPER FUNCTIONS
@@ -64,8 +54,20 @@ def decimal_to_float(obj):
         return [decimal_to_float(i) for i in obj]
     return obj
 
+def get_light_quality(lux_level):
+    """Determine light quality based on lux level"""
+    if lux_level < 100:
+        return {'status': 'Too Dark', 'color': '#6b7280', 'optimal': False}
+    elif lux_level < 300:
+        return {'status': 'Low', 'color': '#fbbf24', 'optimal': False}
+    elif lux_level < 500:
+        return {'status': 'Optimal', 'color': '#4ade80', 'optimal': True}
+    elif lux_level < 1000:
+        return {'status': 'Bright', 'color': '#fbbf24', 'optimal': True}
+    else:
+        return {'status': 'Too Bright', 'color': '#ef4444', 'optimal': False}
 
-def calculate_sessions(raw_data, timeout_threshold=60):
+def calculate_sessions(raw_data, timeout_threshold=900): # 15min timeout
     """Calculate study sessions from presence data"""
     if not raw_data:
         return []
@@ -112,7 +114,6 @@ def calculate_sessions(raw_data, timeout_threshold=60):
 
     return sessions
 
-
 def calculate_focus_score(sessions, total_time_hours):
     """Calculate focus score based on session consistency"""
     if not sessions or total_time_hours == 0:
@@ -130,21 +131,6 @@ def calculate_focus_score(sessions, total_time_hours):
     
     focus_score = (presence_ratio * 80) + (session_bonus * 100)
     return min(round(focus_score), 100)
-
-
-def get_light_quality(lux_level):
-    """Determine light quality based on lux level"""
-    if lux_level < 100:
-        return {'status': 'Too Dark', 'color': '#6b7280', 'optimal': False}
-    elif lux_level < 300:
-        return {'status': 'Low', 'color': '#fbbf24', 'optimal': False}
-    elif lux_level < 500:
-        return {'status': 'Optimal', 'color': '#4ade80', 'optimal': True}
-    elif lux_level < 1000:
-        return {'status': 'Bright', 'color': '#fbbf24', 'optimal': True}
-    else:
-        return {'status': 'Too Bright', 'color': '#ef4444', 'optimal': False}
-
 
 def generate_insights(sensor_data, sessions, study_trends):
     """Generate smart insights based on sensor data and patterns"""
@@ -236,7 +222,6 @@ def generate_insights(sensor_data, sessions, study_trends):
     
     return insights
 
-
 # ============================================
 # API ENDPOINTS
 # ============================================
@@ -246,107 +231,295 @@ def health_check():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()})
 
-
-@app.route('/api/presence_history', methods=['GET'])
-def get_presence_history():
-    """Get presence history and calculated sessions"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
+# done
+@app.route('/api/dashboard_stats', methods=['GET'])
+def get_dashboard_stats():
+    """Get main dashboard statistics"""
     hours = int(request.args.get('hours', 24))
     cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
     cutoff_iso_string = cutoff_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-
+    
+    items = []
     try:
-        response = presence_table.query(
-            KeyConditionExpression=Key('deviceId').eq(device_id) & Key('timestamp').gte(cutoff_iso_string)
-        )
-        items = response.get('Items', [])
-        items = decimal_to_float(items)
-        
-        calculated_sessions = calculate_sessions(items)
+        # Get today's sessions
+        query_kwargs = {
+            'KeyConditionExpression': Key('deviceId').eq('esp32-ultrasonic') & Key('timestamp').gte(cutoff_iso_string),
+            'ScanIndexForward': True,
+        }
+        while True:
+            response = presence_table.query(**query_kwargs)
+            # print(response)
+            items.extend(response.get('Items', []))
 
+            last_key = response.get('LastEvaluatedKey')
+            if not last_key:
+                break
+            query_kwargs['ExclusiveStartKey'] = last_key
+
+        sessions = calculate_sessions(items)
+        
+        # Calculate session time
+        latest_start_time = sessions[-1]['start']
+        latest_end_time = sessions[-1]['end']
+        time_now = int(time.time())
+
+        if (time_now - latest_end_time) <= 150:
+            total_seconds = time_now - latest_start_time
+            # print(latest_start_time, time_now, total_seconds)
+            
+            session_hours = int(total_seconds // 3600)
+            session_minutes = int((total_seconds & 3600) // 60)
+            session_seconds = int(total_seconds % 60)
+            session_time = f"{session_hours}h {session_minutes}m {session_seconds}s"
+            # print(f"session time: {session_time}")
+        else:
+            session_time = "0h 0m 0s"
+
+        # Calculate focus score
+        focus_score = calculate_focus_score(sessions, 8)
+        
+        # Get current sensor status
+        latest_presence = presence_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-ultrasonic'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        latest_ambience = ambient_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-light'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        latest_camera = stress_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-camera'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        light_level = latest_ambience['Items'][0].get('ambientLux', 0)
+        presence_detected = latest_presence['Items'][0].get('presence', False)
+        emotion_state = latest_camera['Items'][0].get('primaryEmotion', 'Calm')
+        stress_level = latest_camera['Items'][0].get('stressScore', 0.0)
+        
         return jsonify({
-            "count": len(items),
-            "sessions": calculated_sessions,
-            "totalStudyMinutes": sum(s.get('duration_minutes', 0) for s in calculated_sessions)
+            'sessionTime': session_time,
+            'focusScore': focus_score,
+            'lightLevel': decimal_to_float(light_level),
+            'presenceDetected': presence_detected,
+            'emotionState': emotion_state.capitalize(),
+            'stressLevel': decimal_to_float(stress_level) * 100,
         })
         
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/sensors/latest', methods=['GET'])
-def get_latest_sensor_data():
-    """Get the most recent readings from all sensors"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
-    
-    result = {
-        'lightLevel': 0,
-        'lightQuality': 'unknown',
-        'presence': False,
-        'distanceCm': 0,
-        'emotionState': 'neutral',
-        'stressLevel': 0,
-        'timestamp': None
-    }
+# done
+@app.route('/api/productivity', methods=['GET'])
+def get_productivity():
+    """Get productivity data by time of day"""
+    device_id = request.args.get('deviceId', 'esp32-ultrasonic')
+    days = int(request.args.get('days', 7))
     
     try:
-        # Get latest presence data
-        presence_response = presence_table.query(
-            KeyConditionExpression=Key('deviceId').eq(device_id),
-            ScanIndexForward=False,
-            Limit=1
-        )
+        # Initialize hourly buckets
+        weekly_stats = {
+            day: {hour: {'total': 0, 'present': 0} for hour in range(24)} for day in range(7)
+        }
         
-        if presence_response.get('Items'):
-            latest = decimal_to_float(presence_response['Items'][0])
-            result['presence'] = latest.get('presence', False)
-            result['distanceCm'] = latest.get('distanceCm', 0)
-            result['timestamp'] = latest.get('timestamp')
-            
-            # If ambient data is in same table
-            if 'lighting' in latest or 'lightLevel' in latest:
-                result['lightLevel'] = latest.get('lighting') or latest.get('lightLevel', 0)
-                quality = get_light_quality(result['lightLevel'])
-                result['lightQuality'] = quality['status']
+        cutoff_dt = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_iso_string = cutoff_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         
-        return jsonify(result)
-        
-    except Exception as e:
-        print(f"Error fetching latest sensor data: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/sensors/history', methods=['GET'])
-def get_sensor_history():
-    """Get historical sensor readings"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
-    sensor_type = request.args.get('type', 'all')  # presence, light, stress, all
-    hours = int(request.args.get('hours', 24))
-    
-    cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
-    cutoff_iso_string = cutoff_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-    
-    try:
         response = presence_table.query(
             KeyConditionExpression=Key('deviceId').eq(device_id) & Key('timestamp').gte(cutoff_iso_string)
         )
+        
         items = decimal_to_float(response.get('Items', []))
         
-        # Format data based on sensor type
-        if sensor_type == 'presence':
-            data = [{'timestamp': i.get('timestamp'), 'presence': i.get('presence'), 'distance': i.get('distanceCm')} for i in items]
-        elif sensor_type == 'light':
-            data = [{'timestamp': i.get('timestamp'), 'lightLevel': i.get('lighting') or i.get('lightLevel', 0)} for i in items]
-        else:
-            data = items
+        for item in items:
+            try:
+                timestamp = item.get('timestamp', '')
+                if timestamp:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    hour = dt.hour
+                    sgt_zone = timezone(timedelta(hours=8))
+                    dt_sgt = dt.astimezone(sgt_zone)
+                    
+                    # Extract Day and Hour
+                    day_idx = dt_sgt.weekday() # 0=Mon, 6=Sun
+                    hour = dt_sgt.hour         # 0-23
+                    
+                    weekly_stats[day_idx][hour]['total'] += 1
+                    if item.get('presence', False):
+                        weekly_stats[day_idx][hour]['present'] += 1
+            except:
+                continue
         
-        return jsonify({"count": len(data), "data": data})
+        # Calculate productivity percentage for each hour
+        days_map = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        productivity_data = []
+        
+        for day_idx in range(7):
+            for hour in range(24):
+                stats = weekly_stats[day_idx][hour]
+                total = stats['total']
+                present = stats['present']
+                
+                score = round((present / total) * 100) if total > 0 else 0
+                
+                productivity_data.append({
+                    'day': days_map[day_idx], # "Mon", "Tue"...
+                    'hour': hour,             # 0, 1, 2... 23
+                    'productivity': score,
+                    'dataPoints': total
+                })
+        
+        return jsonify({'data': productivity_data})
         
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+# done
+@app.route('/api/insights', methods=['GET'])
+def get_insights():
+    """Get smart insights based on sensor data"""
+    try:
+        # Get recent sensor data
+        hours = 24
+        cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff_iso_string = cutoff_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        
+        response = presence_table.query(
+            KeyConditionExpression=Key('deviceId').eq("esp32-ultrasonic") & Key('timestamp').gte(cutoff_iso_string)
+        )
+        
+        items = decimal_to_float(response.get('Items', []))
+        sessions = calculate_sessions(items)
+        
+        # Get latest sensor reading
+        latest_presence = presence_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-ultrasonic'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        latest_ambience = ambient_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-light'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        latest_camera = stress_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-camera'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        light_level = latest_ambience['Items'][0].get('ambientLux', 0)
+        presence_detected = latest_presence['Items'][0].get('presence', False)
+        stress_level = latest_camera['Items'][0].get('stressScore', 0.0)
+
+        sensor_data = {
+            'lightLevel': light_level,
+            'presenceDetected': presence_detected,
+            'stressLevel': stress_level
+        }
+        
+        # Get study trends for insights
+        study_trends_response = get_study_trends_internal(7)
+        # print(sensor_data, study_trends_response)
+
+        insights = generate_insights(sensor_data, sessions, study_trends_response.get('trends', []))
+        print(insights)
+        
+        return jsonify({'insights': insights})
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": str(e), "insights": []})
+
+def get_study_trends_internal(days):
+    """Internal function to get study trends"""
+    try:
+        trends = []
+        day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        
+        for i in range(days):
+            day_offset = days - 1 - i
+            target_date = datetime.now(timezone.utc) - timedelta(days=day_offset)
+            start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            
+            start_iso = start_of_day.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+            end_iso = end_of_day.strftime('%Y-%m-%dT%H:%M:%S.999Z')
+            
+            response = presence_table.query(
+                KeyConditionExpression=Key('deviceId').eq('esp32-ultrasonic') & 
+                    Key('timestamp').between(start_iso, end_iso)
+            )
+            
+            items = decimal_to_float(response.get('Items', []))
+            sessions = calculate_sessions(items)
+            
+            total_study_minutes = sum(s.get('duration_minutes', 0) for s in sessions)
+            study_hours = round(total_study_minutes / 60, 1)
+            focus_score = calculate_focus_score(sessions, 8)
+            
+            day_name = day_names[target_date.weekday()]
+            
+            trends.append({
+                'day': day_name,
+                'studyHours': study_hours,
+                'focusScore': focus_score
+            })
+        
+        return {'trends': trends}
+    except:
+        return {'trends': []}
+
+# done
+@app.route('/api/sensors/latest', methods=['GET'])
+def get_latest_sensor_data():
+    """Get the most recent readings from all sensors"""
+    try:
+        # Get latest presence data
+        latest_presence = presence_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-ultrasonic'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        latest_ambience = ambient_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-light'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        latest_camera = stress_table.query(
+            KeyConditionExpression=Key('deviceId').eq('esp32-camera'),
+            ScanIndexForward=False,
+            Limit=1
+        )
+
+        light_level = latest_ambience['Items'][0].get('ambientLux', 0)
+        presence_detected = latest_presence['Items'][0].get('presence', False)
+        distance_cm = latest_presence['Items'][0].get('distanceCm', 0.0)
+        emotion_state = latest_camera['Items'][0].get('primaryEmotion', 'Calm')
+        stress_level = latest_camera['Items'][0].get('stressScore', 0.0)
+        
+        return jsonify({
+            'lightLevel': decimal_to_float(light_level),
+            'presenceDetected': presence_detected,
+            'distanceCm': distance_cm,
+            'emotionState': emotion_state.capitalize(),
+            'stressLevel': decimal_to_float(stress_level) * 100,
+        })
+        
+    except Exception as e:
+        print(f"Error fetching latest sensor data: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/study_trends', methods=['GET'])
 def get_study_trends():
@@ -421,72 +594,18 @@ def get_study_trends():
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/productivity', methods=['GET'])
-def get_productivity_by_hour():
-    """Get productivity data by time of day"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
-    days = int(request.args.get('days', 7))
-    
-    try:
-        # Initialize hourly buckets
-        hourly_presence = {hour: {'total': 0, 'present': 0} for hour in range(24)}
-        
-        cutoff_dt = datetime.now(timezone.utc) - timedelta(days=days)
-        cutoff_iso_string = cutoff_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        
-        response = presence_table.query(
-            KeyConditionExpression=Key('deviceId').eq(device_id) & Key('timestamp').gte(cutoff_iso_string)
-        )
-        
-        items = decimal_to_float(response.get('Items', []))
-        
-        for item in items:
-            try:
-                timestamp = item.get('timestamp', '')
-                if timestamp:
-                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                    hour = dt.hour
-                    hourly_presence[hour]['total'] += 1
-                    if item.get('presence', False):
-                        hourly_presence[hour]['present'] += 1
-            except:
-                continue
-        
-        # Calculate productivity percentage for each hour
-        productivity_data = []
-        time_labels = ['12am', '2am', '4am', '6am', '8am', '10am', '12pm', '2pm', '4pm', '6pm', '8pm', '10pm']
-        
-        for i, label in enumerate(time_labels):
-            hour = i * 2
-            total = hourly_presence[hour]['total'] + hourly_presence[hour + 1]['total']
-            present = hourly_presence[hour]['present'] + hourly_presence[hour + 1]['present']
-            
-            productivity = round((present / total) * 100) if total > 0 else 0
-            productivity_data.append({
-                'time': label,
-                'productivity': productivity,
-                'dataPoints': total
-            })
-        
-        return jsonify({'data': productivity_data})
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
+# done
 @app.route('/api/stress_history', methods=['GET'])
 def get_stress_history():
     """Get stress level history for the current session"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
-    hours = int(request.args.get('hours', 4))  # Default to last 4 hours for session view
+    device_id = request.args.get('deviceId', 'esp32-camera')
+    hours = int(request.args.get('hours', 6))  # Default to last 4 hours for session view
     
     try:
         cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
         cutoff_iso_string = cutoff_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         
-        response = presence_table.query(
+        response = stress_table.query(
             KeyConditionExpression=Key('deviceId').eq(device_id) & Key('timestamp').gte(cutoff_iso_string)
         )
         
@@ -501,25 +620,23 @@ def get_stress_history():
                 timestamp = item.get('timestamp', '')
                 if timestamp:
                     dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    sgt_zone = timezone(timedelta(hours=8))
+                    dt_sgt = dt.astimezone(sgt_zone)
                     # Round to 30-minute interval
-                    interval_key = dt.replace(minute=30 if dt.minute >= 30 else 0, second=0, microsecond=0)
+                    interval_key = dt_sgt.replace(minute=30 if dt.minute >= 30 else 0, second=0, microsecond=0)
                     time_label = interval_key.strftime('%H:%M')
                     
                     if time_label not in interval_data:
                         interval_data[time_label] = {
                             'stress_values': [],
-                            'presence_count': 0,
                             'total_count': 0
                         }
                     
                     interval_data[time_label]['total_count'] += 1
-                    if item.get('presence', False):
-                        interval_data[time_label]['presence_count'] += 1
-                        # Simulate stress based on session duration (in real implementation, use actual stress data)
-                        # For now, calculate based on continuous presence
-                        stress_values = interval_data[time_label]['stress_values']
-                        base_stress = 20 + (len(stress_values) * 2)  # Stress increases over time
-                        stress_values.append(min(base_stress, 80))
+                    stress_values = interval_data[time_label]['stress_values']
+                    base_stress = 20 + (len(stress_values) * 2)  # Stress increases over time
+                    stress_values.append(min(base_stress, 80))
+                    interval_data[time_label]['stress_values'] = stress_values
             except:
                 continue
         
@@ -566,147 +683,35 @@ def get_stress_history():
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+# done
+@app.route('/api/presence_history', methods=['GET'])
+def get_presence_history():
+    """Get presence history and calculated sessions"""
+    now = datetime.now(timezone.utc)
+    sgt_offset = timedelta(hours=8)
+    now_sgt = now + sgt_offset
+    cutoff_dt = now_sgt.replace(hour=0, minute=0, second=0, microsecond=0)
+    cutoff_utc = cutoff_dt - sgt_offset
+    cutoff_iso_string = cutoff_utc.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
-@app.route('/api/dashboard_stats', methods=['GET'])
-def get_dashboard_stats():
-    """Get main dashboard statistics"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
-    
     try:
-        # Get today's sessions
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-        today_iso = today_start.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        
         response = presence_table.query(
-            KeyConditionExpression=Key('deviceId').eq(device_id) & Key('timestamp').gte(today_iso)
+            KeyConditionExpression=Key('deviceId').eq('esp32-ultrasonic') & Key('timestamp').gte(cutoff_iso_string)
         )
+        items = response.get('Items', [])
+        items = decimal_to_float(items)
         
-        items = decimal_to_float(response.get('Items', []))
-        sessions = calculate_sessions(items)
-        
-        # Calculate session time
-        total_minutes = sum(s.get('duration_minutes', 0) for s in sessions)
-        hours = int(total_minutes // 60)
-        minutes = int(total_minutes % 60)
-        session_time = f"{hours}h {minutes}m"
-        
-        # Calculate focus score
-        focus_score = calculate_focus_score(sessions, 8)
-        
-        # Get current sensor status
-        latest_response = presence_table.query(
-            KeyConditionExpression=Key('deviceId').eq(device_id),
-            ScanIndexForward=False,
-            Limit=1
-        )
-        
-        current_presence = False
-        current_light = 0
-        if latest_response.get('Items'):
-            latest = decimal_to_float(latest_response['Items'][0])
-            current_presence = latest.get('presence', False)
-            current_light = latest.get('lighting') or latest.get('lightLevel', 0)
-        
+        calculated_sessions = calculate_sessions(items)
+
         return jsonify({
-            'sessionTime': session_time,
-            'totalMinutes': round(total_minutes, 1),
-            'focusScore': focus_score,
-            'sessionsToday': len(sessions),
-            'currentPresence': current_presence,
-            'currentLight': current_light,
-            'lightQuality': get_light_quality(current_light)
+            "count": len(items),
+            "sessions": calculated_sessions,
+            "totalStudyMinutes": sum(s.get('duration_minutes', 0) for s in calculated_sessions)
         })
         
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
-
-
-@app.route('/api/insights', methods=['GET'])
-def get_insights():
-    """Get smart insights based on sensor data"""
-    device_id = request.args.get('deviceId', 'ESP32-lamp')
-    
-    try:
-        # Get recent sensor data
-        hours = 24
-        cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours)
-        cutoff_iso_string = cutoff_dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        
-        response = presence_table.query(
-            KeyConditionExpression=Key('deviceId').eq(device_id) & Key('timestamp').gte(cutoff_iso_string)
-        )
-        
-        items = decimal_to_float(response.get('Items', []))
-        sessions = calculate_sessions(items)
-        
-        # Get latest sensor reading
-        latest_response = presence_table.query(
-            KeyConditionExpression=Key('deviceId').eq(device_id),
-            ScanIndexForward=False,
-            Limit=1
-        )
-        
-        sensor_data = {}
-        if latest_response.get('Items'):
-            latest = decimal_to_float(latest_response['Items'][0])
-            sensor_data = {
-                'lightLevel': latest.get('lighting') or latest.get('lightLevel', 0),
-                'presence': latest.get('presence', False),
-                'stressLevel': latest.get('stressLevel', 30)  # Default moderate stress
-            }
-        
-        # Get study trends for insights
-        study_trends_response = get_study_trends_internal(device_id, 7)
-        
-        insights = generate_insights(sensor_data, sessions, study_trends_response.get('trends', []))
-        
-        return jsonify({'insights': insights})
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"error": str(e), "insights": []})
-
-
-def get_study_trends_internal(device_id, days):
-    """Internal function to get study trends"""
-    try:
-        trends = []
-        day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        
-        for i in range(days):
-            day_offset = days - 1 - i
-            target_date = datetime.now(timezone.utc) - timedelta(days=day_offset)
-            start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
-            
-            start_iso = start_of_day.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-            end_iso = end_of_day.strftime('%Y-%m-%dT%H:%M:%S.999Z')
-            
-            response = presence_table.query(
-                KeyConditionExpression=Key('deviceId').eq(device_id) & 
-                    Key('timestamp').between(start_iso, end_iso)
-            )
-            
-            items = decimal_to_float(response.get('Items', []))
-            sessions = calculate_sessions(items)
-            
-            total_study_minutes = sum(s.get('duration_minutes', 0) for s in sessions)
-            study_hours = round(total_study_minutes / 60, 1)
-            focus_score = calculate_focus_score(sessions, 8)
-            
-            day_name = day_names[target_date.weekday()]
-            
-            trends.append({
-                'day': day_name,
-                'studyHours': study_hours,
-                'focusScore': focus_score
-            })
-        
-        return {'trends': trends}
-    except:
-        return {'trends': []}
-
 
 # ============================================
 # WEBSOCKET ENDPOINTS INFO
@@ -718,6 +723,7 @@ def get_websocket_info():
     return jsonify({
         'presence': os.getenv('WEBSOCKET_PRESENCE_URL', 'wss://72mbqicisa.execute-api.ap-southeast-1.amazonaws.com/production/'),
         'ambient': os.getenv('WEBSOCKET_AMBIENT_URL', 'wss://7ii4srym84.execute-api.ap-southeast-1.amazonaws.com/production/'),
+        'camera': os.getenv('CAMERA_API_URL', 'https://20lv30hxm5.execute-api.ap-southeast-1.amazonaws.com/production/detections'),
         'instructions': 'Connect to these WebSocket URLs for real-time sensor updates'
     })
 

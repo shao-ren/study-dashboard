@@ -397,6 +397,92 @@ html, body {
   margin-bottom: var(--spacing-lg);
 }
 
+/* this is for the heatmap */
+
+.heatmap-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+/* Header Row */
+.heatmap-header {
+  display: flex;
+  align-items: center;
+}
+
+.y-axis-spacer {
+  width: 40px; /* Must match y-axis-label width */
+  flex-shrink: 0;
+}
+
+.x-axis-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #d2d2d2;
+  min-width: 40px;
+}
+
+/* Data Rows */
+.heatmap-row {
+  display: flex;
+  align-items: center;
+}
+
+.y-axis-label {
+  width: 40px;
+  font-size: 0.85rem;
+  color: #d2d2d2;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.heatmap-cells {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+
+/* The actual colored blocks */
+.heatmap-cell {
+  flex: 1;
+  height: 35px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 40px;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.05);
+}
+
+/* Legend */
+.heatmap-legend {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.legend-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+}
+
 /* ========================================
    INSIGHTS SECTION
    ======================================== */
